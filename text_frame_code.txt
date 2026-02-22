@@ -1,0 +1,116 @@
+    def create_text_frame(self):
+        """Create the text-to-text steganography frame."""
+        frame = ctk.CTkFrame(self.container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+        
+        # Header Area
+        header = ctk.CTkFrame(frame, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        
+        title = ctk.CTkLabel(header, text="📝 TEXT MODULE",
+                             font=ctk.CTkFont(size=24, weight="bold", family="Century Gothic"),
+                             text_color=self.colors["accent"])
+        title.pack(side="left")
+        
+        # Main Card
+        card = ctk.CTkFrame(frame, fg_color=self.colors["card"], corner_radius=20, border_width=1, border_color="#2A2A45")
+        card.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
+        card.grid_columnconfigure(0, weight=1)
+        card.grid_rowconfigure(0, weight=1)
+        
+        # Tabview inside card
+        tabview = ctk.CTkTabview(card, fg_color="transparent", 
+                                  segmented_button_fg_color=self.colors["bg"],
+                                  segmented_button_selected_color=self.colors["accent"],
+                                  segmented_button_selected_hover_color=self.colors["accent_low"],
+                                  segmented_button_unselected_hover_color=self.colors["card"])
+        tabview.grid(row=0, column=0, sticky="nsew", padx=20, pady=10)
+        
+        # Tabs
+        tabview.add("HIDE TEXT")
+        tabview.add("EXTRACT TEXT")
+        
+        # Common element factory
+        def setup_tab(tab):
+            tab.grid_columnconfigure(0, weight=1)
+            f = ctk.CTkFrame(tab, fg_color="transparent")
+            f.pack(fill="both", expand=True, padx=10, pady=10)
+            return f
+
+        # ==================== HIDE TEXT TAB ====================
+        hide_tab = setup_tab(tabview.tab("HIDE TEXT"))
+        
+        # Cover Text Section
+        ctk.CTkLabel(hide_tab, text="COVER TEXT (Visible)", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        cover_text = ctk.CTkTextbox(hide_tab, height=120, fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10)
+        cover_text.pack(fill="x", pady=(5, 15))
+        cover_text.insert("1.0", "Enter your cover text here. This will be the visible text that contains the hidden message.")
+        
+        # Secret Text Section
+        ctk.CTkLabel(hide_tab, text="SECRET MESSAGE (Hidden)", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        secret_text = ctk.CTkTextbox(hide_tab, height=100, fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10)
+        secret_text.pack(fill="x", pady=(5, 15))
+        
+        # Options Row
+        opt_frame = ctk.CTkFrame(hide_tab, fg_color="transparent")
+        opt_frame.pack(fill="x")
+        
+        # Password
+        p_sub = ctk.CTkFrame(opt_frame, fg_color="transparent")
+        p_sub.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        ctk.CTkLabel(p_sub, text="ENCRYPTION KEY", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        pass_entry = ctk.CTkEntry(p_sub, show="*", placeholder_text="Optional password...", fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10, height=40)
+        pass_entry.pack(fill="x", pady=5)
+        
+        # Expiry
+        e_sub = ctk.CTkFrame(opt_frame, fg_color="transparent")
+        e_sub.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(e_sub, text="EXPIRY (HOURS)", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        expiry_entry = ctk.CTkEntry(e_sub, placeholder_text="0 = Permanent", fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10, height=40)
+        expiry_entry.pack(fill="x", pady=5)
+
+        # Progress & Action
+        progress = ctk.CTkProgressBar(hide_tab, progress_color=self.colors["accent"], fg_color=self.colors["bg"], height=8)
+        progress.pack(fill="x", pady=(20, 10))
+        progress.set(0)
+        
+        status = ctk.CTkLabel(hide_tab, text="SYSTEM READY", font=ctk.CTkFont(size=11), text_color=self.colors["text_dim"])
+        status.pack()
+        
+        ctk.CTkButton(hide_tab, text="EXECUTE ENCODING", height=50, corner_radius=12,
+                      font=ctk.CTkFont(size=15, weight="bold"),
+                      fg_color=self.colors["accent"], text_color="#000", hover_color=self.colors["accent_low"],
+                      command=lambda: self.hide_text_in_text(cover_text, secret_text, pass_entry, progress, status, expiry_entry)).pack(pady=20)
+
+        # ==================== EXTRACT TEXT TAB ====================
+        extract_tab = setup_tab(tabview.tab("EXTRACT TEXT"))
+        
+        ctk.CTkLabel(extract_tab, text="STEGO TEXT (Contains Hidden Message)", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        stego_text = ctk.CTkTextbox(extract_tab, height=120, fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10)
+        stego_text.pack(fill="x", pady=(5, 15))
+        
+        ctk.CTkLabel(extract_tab, text="DECRYPTION KEY", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w")
+        ext_pass_entry = ctk.CTkEntry(extract_tab, show="*", placeholder_text="Enter key if used...", fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10, height=40)
+        ext_pass_entry.pack(fill="x", pady=(5, 15))
+        
+        decoy_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(extract_tab, text="SAFE MODE (Decoy on failure)", variable=decoy_var, font=ctk.CTkFont(size=12), text_color=self.colors["text_dim"], border_color=self.colors["accent_low"], checkmark_color=self.colors["accent"]).pack(anchor="w")
+        
+        ctk.CTkLabel(extract_tab, text="EXTRACTED SECRET", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.colors["text_dim"]).pack(anchor="w", pady=(15, 0))
+        extracted_text = ctk.CTkTextbox(extract_tab, height=100, fg_color=self.colors["bg"], border_width=1, border_color="#2A2A45", corner_radius=10)
+        extracted_text.pack(fill="x", pady=(5, 10))
+        
+        ext_progress = ctk.CTkProgressBar(extract_tab, progress_color=self.colors["danger"], fg_color=self.colors["bg"], height=8)
+        ext_progress.pack(fill="x", pady=5)
+        ext_progress.set(0)
+        
+        ext_status = ctk.CTkLabel(extract_tab, text="DECODER READY", font=ctk.CTkFont(size=11), text_color=self.colors["text_dim"])
+        ext_status.pack()
+        
+        ctk.CTkButton(extract_tab, text="START DECODING", height=50, corner_radius=12,
+                      font=ctk.CTkFont(size=15, weight="bold"),
+                      fg_color=self.colors["danger"], hover_color="#D11E4E",
+                      command=lambda: self.extract_text_from_text(stego_text, ext_pass_entry, extracted_text, ext_progress, ext_status, decoy_var)).pack(pady=15)
+        
+        return frame

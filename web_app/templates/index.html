@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SILENT | Secure Information Layering Engine</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="logo">
+                <svg class="logo-svg-sm" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="goldGradSm" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="var(--primary-light)" />
+                            <stop offset="50%" stop-color="var(--primary)" />
+                            <stop offset="100%" stop-color="var(--primary-dark)" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Crossed Swords -->
+                    <g stroke="url(#goldGradSm)" stroke-width="4" stroke-linecap="round">
+                        <line x1="20" y1="20" x2="80" y2="80" />
+                        <line x1="80" y1="20" x2="20" y2="80" />
+                        <path d="M32 20 L20 32" stroke-width="5" />
+                        <path d="M68 20 L80 32" stroke-width="5" />
+                        <circle cx="18" cy="18" r="4" fill="url(#goldGradSm)" stroke="none" />
+                        <circle cx="82" cy="18" r="4" fill="url(#goldGradSm)" stroke="none" />
+                    </g>
+                    <!-- Central Eye -->
+                    <ellipse cx="50" cy="50" rx="30" ry="18" fill="var(--background)" stroke="url(#goldGradSm)"
+                        stroke-width="3" />
+                    <circle cx="50" cy="50" r="12" fill="url(#goldGradSm)" />
+                    <circle cx="50" cy="50" r="5" fill="var(--background)" />
+                </svg>
+                <span>SILENT</span>
+            </div>
+
+            <div class="nav-links">
+                <button class="nav-btn active" data-type="text" onclick="setMediaType('text')">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Text Steganography</span>
+                </button>
+                <button class="nav-btn" data-type="image" onclick="setMediaType('image')">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Image Steganography</span>
+                </button>
+                <button class="nav-btn" data-type="audio" onclick="setMediaType('audio')">
+                    <i class="fa-solid fa-music"></i>
+                    <span>Audio Steganography</span>
+                </button>
+                <button class="nav-btn" data-type="video" onclick="setMediaType('video')">
+                    <i class="fa-solid fa-film"></i>
+                    <span>Video Steganography</span>
+                </button>
+                <button class="nav-btn" data-type="multilayer" onclick="setMediaType('multilayer')">
+                    <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                        style="width: 20px; height: 20px;">
+                        <path d="M12 2L4 7L12 12L20 7L12 2Z" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M4 12L12 17L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" opacity="0.7" />
+                        <path d="M4 17L12 22L20 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" opacity="0.4" />
+                    </svg>
+                    <span>Multi-Layer</span>
+                </button>
+                <button class="nav-btn" data-type="history" onclick="setMediaType('history')">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Operation History</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <div class="header-icon-box">
+                        <i id="header-icon" class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div class="header-info">
+                        <h1 id="page-title">Text Steganography</h1>
+                        <p id="page-desc">Hide messages using zero-width characters</p>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>System Ready</span>
+                    </div>
+                    <div class="user-profile">
+                        <div class="user-avatar">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ username }}</span>
+                            <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area custom-scrollbar">
+                <!-- Glass Card Container for Content -->
+                <!-- We wrap the content in a glass card style div or keep sections separate like React. 
+                  The React design puts components inside content area. The components themselves don't seem to force a card, 
+                  but existing style used standard panels. I will wrap active sections in glass-card where appropriate 
+                  or let the sections define it. -->
+
+                <!-- HIDE/EXTRACT TABS (Only visible for single media types) -->
+                <div id="operation-tabs" class="tabs">
+                    <button class="tab-btn active" onclick="setOperation('hide')">
+                        <i class="fa-solid fa-lock"></i> Hide Data
+                    </button>
+                    <button class="tab-btn" onclick="setOperation('extract')">
+                        <i class="fa-solid fa-lock-open"></i> Extract Data
+                    </button>
+                </div>
+
+                <!-- HIDE SECTION -->
+                <div id="hide-section" class="section active">
+                    <div class="glass-card">
+                        <div class="data-type-switch">
+                            <label class="switch-label active" onclick="setDataType('text')">
+                                <i class="fa-solid fa-font"></i> Text
+                            </label>
+                            <label class="switch-label" onclick="setDataType('media')">
+                                <i class="fa-solid fa-file"></i> File/Media
+                            </label>
+                        </div>
+
+                        <form id="hide-form">
+                            <!-- Cover Text for Text Module -->
+                            <div id="cover-text-group" class="input-group">
+                                <label>Cover Text (Visible)</label>
+                                <textarea id="cover-text" name="cover_text"
+                                    placeholder="Enter your cover text here. This will be the visible text that contains the hidden message."></textarea>
+                            </div>
+
+                            <!-- Source File Upload (Hidden for text module) -->
+                            <div id="source-upload-group" class="upload-area" style="display: none;">
+                                <input type="file" id="source-file" name="source_file" hidden>
+                                <div class="upload-content">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <p>Drop <strong>Cover File</strong> Here</p>
+                                    <div class="file-info" id="source-file-info"></div>
+                                </div>
+                            </div>
+
+                            <!-- Secret Data Input -->
+                            <div id="text-input-group" class="input-group">
+                                <label>Secret Message</label>
+                                <textarea id="secret-text" name="text_data"
+                                    placeholder="Enter your secret message here..."></textarea>
+                            </div>
+
+                            <div id="media-input-group" class="input-group" style="display: none;">
+                                <label>Secret File to Hide</label>
+                                <div class="upload-area small" id="secret-upload">
+                                    <input type="file" id="media-file" name="media_file" hidden>
+                                    <div class="upload-content">
+                                        <i class="fa-solid fa-file-shield"></i>
+                                        <p>Select Secret File</p>
+                                        <div class="file-info" id="media-file-info"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="input-group">
+                                <label>Encryption Password (Optional)</label>
+                                <input type="password" id="hide-password" name="password"
+                                    placeholder="Enter secure password">
+                            </div>
+
+                            <!-- Expiration -->
+                            <div class="input-group">
+                                <label>Expiration (Dead-Man Switch)</label>
+                                <input type="number" id="expiry-hours" name="expiry_hours"
+                                    placeholder="Hours to expire (0 = Never)" step="0.1" min="0">
+                                <small style="color: var(--text-muted); margin-top: 4px; display: block;">
+                                    <i class="fa-solid fa-skull"></i> Message self-destructs if accessed after this
+                                    time.
+                                </small>
+                            </div>
+
+                            <button type="submit" class="action-btn">
+                                <i class="fa-solid fa-bolt"></i> Process & Hide
+                            </button>
+                        </form>
+
+                        <!-- Image Comparison Display -->
+                        <div id="image-comparison-display" class="image-comparison-container" style="display: none;">
+                            <div class="comparison-panels">
+                                <div class="image-panel">
+                                    <h3 style="text-align: center; color: var(--text-muted);">Cover Image</h3>
+                                    <div class="image-display-box" id="cover-image-display">
+                                        <img id="cover-image-preview" src="" alt="Cover Image" style="display: none;">
+                                    </div>
+                                </div>
+                                <div class="image-panel">
+                                    <h3 style="text-align: center; color: var(--text-muted);">Hidden Image Output</h3>
+                                    <div class="image-display-box" id="hidden-image-display">
+                                        <img id="hidden-image-preview" src="" alt="Hidden Image Output"
+                                            style="display: none;">
+                                    </div>
+                                    <div id="image-output-actions"
+                                        style="display: none; gap: 1rem; margin-top: 1rem; justify-content: center;">
+                                        <a id="image-download-btn-direct" href="#" class="action-btn secondary"
+                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem;">
+                                            <i class="fa-solid fa-download"></i> Download
+                                        </a>
+                                        <button id="image-share-btn" onclick="openShareModal('image')"
+                                            class="action-btn share-btn"
+                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
+                                            <i class="fa-solid fa-share-nodes"></i> Share
+                                        </button>
+                                        <button id="image-native-share-btn" onclick="shareImageNative()"
+                                            class="action-btn"
+                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                            <i class="fa-solid fa-share"></i> Direct
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stego Output Result -->
+                        <div id="stego-output-area" class="glass-card"
+                            style="display: none; margin-top: 2rem; border-color: var(--success);">
+                            <h3 style="color: var(--success); margin-bottom: 1rem;"><i
+                                    class="fa-solid fa-circle-check"></i> Data Hidden Successfully!</h3>
+                            <div id="stego-text-output"
+                                style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; max-height: 150px; overflow-y: auto; word-break: break-all; font-family: 'Space Mono', monospace;">
+                            </div>
+                            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                                <button onclick="copyToClipboard()" class="action-btn secondary" style="width: auto;">
+                                    <i class="fa-solid fa-copy"></i> Copy
+                                </button>
+                                <a id="hide-download-btn" href="#" class="action-btn"
+                                    style="width: auto; text-decoration: none; display: none;">
+                                    <i class="fa-solid fa-download"></i> Download
+                                </a>
+                                <button id="hide-share-btn" onclick="openShareModal('hide')"
+                                    class="action-btn share-btn"
+                                    style="width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
+                                    <i class="fa-solid fa-share-nodes"></i> Share
+                                </button>
+                                <button id="text-native-share-btn" onclick="shareTextNative()"
+                                    class="action-btn"
+                                    style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                    <i class="fa-solid fa-share"></i> Direct
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXTRACT SECTION -->
+                <div id="extract-section" class="section">
+                    <div class="glass-card">
+                        <div class="data-type-switch">
+                            <label class="switch-label active" onclick="setDataType('text')">
+                                <i class="fa-solid fa-font"></i> Text
+                            </label>
+                            <label class="switch-label" onclick="setDataType('media')">
+                                <i class="fa-solid fa-file"></i> File/Media
+                            </label>
+                        </div>
+
+                        <form id="extract-form">
+                            <div id="stego-text-group" class="input-group">
+                                <label>Stego Text (Contains Hidden Message)</label>
+                                <textarea id="stego-text-input" name="stego_text"
+                                    placeholder="Paste the text that contains the hidden message..."></textarea>
+                            </div>
+
+                            <div id="stego-upload-group" class="upload-area" style="display: none;">
+                                <input type="file" id="stego-file" name="source_file" hidden>
+                                <div class="upload-content">
+                                    <i class="fa-solid fa-file-zipper"></i>
+                                    <p>Drop <strong>Stego File</strong> Here</p>
+                                    <div class="file-info" id="stego-file-info"></div>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label>Decryption Password</label>
+                                <input type="password" id="extract-password" name="password"
+                                    placeholder="Enter password">
+                            </div>
+
+                            <!-- File Mode Option -->
+                            <div class="input-group checkbox-group" id="file-mode-group"
+                                style="display: none; margin-top: 10px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="is_file_mode" name="is_file_mode" style="width: auto;">
+                                    Extract Hidden <strong>File (LSB)</strong>
+                                </label>
+                            </div>
+
+                            <!-- Decoy Option -->
+                            <div class="input-group checkbox-group" style="margin-top: 10px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="decoy_on_fail" name="decoy_on_fail" style="width: auto;">
+                                    Generate <strong>Decoy Message</strong> if password fails
+                                </label>
+                            </div>
+
+                            <button type="submit" class="action-btn secondary">
+                                <i class="fa-solid fa-unlock-keyhole"></i> Extract Data
+                            </button>
+                        </form>
+
+                        <!-- Results -->
+                        <div id="result-area" class="glass-card"
+                            style="display: none; margin-top: 2rem; border-color: var(--success);">
+                            <h3 style="color: var(--success); margin-bottom: 1rem;"><i
+                                    class="fa-solid fa-circle-check"></i> Extraction Successful</h3>
+                            <div id="text-result"
+                                style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-family: 'Space Mono', monospace; overflow: auto;">
+                            </div>
+                            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                                <a id="download-btn" href="#" class="action-btn"
+                                    style="width: auto; text-decoration: none; display: none;">
+                                    <i class="fa-solid fa-download"></i> Download Extracted File
+                                </a>
+                                <button id="extract-share-btn" onclick="openShareModal('extract')"
+                                    class="action-btn share-btn"
+                                    style="width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary); display: none;">
+                                    <i class="fa-solid fa-share-nodes"></i> Share
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MULTILAYER SECTION -->
+                <div id="multilayer-section" class="section">
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="setMLOperation('hide')">
+                            <i class="fa-solid fa-lock"></i> Hide Data
+                        </button>
+                        <button class="tab-btn" onclick="setMLOperation('extract')">
+                            <i class="fa-solid fa-lock-open"></i> Extract Data
+                        </button>
+                    </div>
+
+                    <!-- Multi-Layer Hide Section -->
+                    <div id="ml-hide-section">
+                        <div class="glass-card">
+                            <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Multi-Layer Encryption Sequence</h2>
+                            <form id="multilayer-hide-form">
+                                <div class="data-type-switch" style="margin-bottom: 1rem;">
+                                <label class="switch-label active" onclick="setMLDataType('text')">
+                                    <i class="fa-solid fa-font"></i> Secret Text
+                                </label>
+                                <label class="switch-label" onclick="setMLDataType('media')">
+                                    <i class="fa-solid fa-file"></i> Secret File
+                                </label>
+                            </div>
+    
+                                <div class="input-group" id="ml-text-input-group">
+                                    <label>Secret Message</label>
+                                    <textarea id="ml-secret-text" name="secret_text"
+                                        placeholder="Enter secret message to hide..."></textarea>
+                                </div>
+
+                                <div class="upload-area small" id="ml-media-input-group"
+                                    style="display: none; margin-bottom: 1.5rem;">
+                                    <input type="file" id="ml-secret-file" name="secret_file" hidden>
+                                    <div class="upload-content">
+                                        <i class="fa-solid fa-file-shield"></i>
+                                        <p>Select Secret File</p>
+                                        <div class="file-info" id="ml-secret-file-info"></div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                                    <!-- Layer 1 -->
+                                    <div
+                                        style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 1 (Inner)</h3>
+                                        <div class="input-group">
+                                            <label>Type</label>
+                                            <select id="ml-layer1-type" name="layer1_type"
+                                                onchange="updateLayerUploadUI('layer1')">
+                                                <option value="text">Text</option>
+                                                <option value="image">Image</option>
+                                                <option value="audio">Audio</option>
+                                                <option value="video">Video</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Password</label>
+                                            <input type="password" id="ml-layer1-pass" name="layer1_password"
+                                                placeholder="Optional">
+                                        </div>
+                                        <div class="upload-area small" id="ml-layer1-upload" style="display: none;">
+                                            <input type="file" id="ml-layer1-file" name="layer1_cover" hidden>
+                                            <div class="upload-content">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                                <p>Upload <strong>Source Media</strong></p>
+                                                <div class="file-info" id="ml-layer1-info"></div>
+                                            </div>
+                                        </div>
+                                        <div id="ml-l1-preview-container" style="display: none; margin-top: 1rem;">
+                                            <img id="ml-l1-preview" src=""
+                                                style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
+                                        </div>
+                                        <textarea id="ml-layer1-text" name="layer1_text" placeholder="Enter text carrier"
+                                            style="display: none;"></textarea>
+                                    </div>
+    
+                                    <!-- Layer 2 -->
+                                    <div
+                                        style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 2 (Outer)</h3>
+                                        <div class="input-group">
+                                            <label>Type</label>
+                                            <select id="ml-layer2-type" name="layer2_type"
+                                                onchange="updateLayerUploadUI('layer2')">
+                                                <option value="text">Text</option>
+                                                <option value="image">Image</option>
+                                                <option value="audio">Audio</option>
+                                                <option value="video">Video</option>
+                                            </select>
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Password</label>
+                                            <input type="password" id="ml-layer2-pass" name="layer2_password"
+                                                placeholder="Optional">
+                                        </div>
+                                        <div class="upload-area small" id="ml-layer2-upload" style="display: none;">
+                                            <input type="file" id="ml-layer2-file" name="layer2_cover" hidden>
+                                            <div class="upload-content">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                                <p>Upload <strong>Source Media</strong></p>
+                                                <div class="file-info" id="ml-layer2-info"></div>
+                                            </div>
+                                        </div>
+                                        <div id="ml-l2-preview-container" style="display: none; margin-top: 1rem;">
+                                            <img id="ml-l2-preview" src=""
+                                                style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
+                                        </div>
+                                        <textarea id="ml-layer2-text" name="layer2_text" placeholder="Enter text carrier"
+                                            style="display: none;"></textarea>
+                                    </div>
+                                </div>
+    
+                                <button type="submit" class="action-btn">
+                                    <i class="fa-solid fa-layer-group"></i> Process Sequence
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+    
+                    <!-- Multi-Layer Extract Section -->
+                    <div id="ml-extract-section" style="display: none;">
+                        <div class="glass-card">
+                            <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Multi-Layer Extraction</h2>
+                            <form id="multilayer-extract-form">
+                                <div class="data-type-switch" style="margin-bottom: 1.5rem;">
+                                <label class="switch-label active" onclick="setMLExtractDataType('text')">
+                                    <i class="fa-solid fa-font"></i> Expecting Text
+                                </label>
+                                <label class="switch-label" onclick="setMLExtractDataType('media')">
+                                    <i class="fa-solid fa-file"></i> Expecting File
+                                </label>
+                            </div>
+
+                            <div class="upload-area" id="ml-stego-upload">
+                                <input type="file" id="ml-stego-file" name="stego_file" hidden>
+                                <div class="upload-content">
+                                    <i class="fa-solid fa-file-zipper"></i>
+                                    <p>Drop <strong>Multi-Layer File</strong> Here (Auto-Detect)</p>
+                                    <div class="file-info" id="ml-stego-info"></div>
+                                </div>
+                            </div>
+
+                            <!-- Passwords for Auto-Detect -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; margin-top: 1.5rem;">
+                                <div class="input-group">
+                                    <label>Outer Layer Password</label>
+                                    <input type="password" id="ml-auto-pass-1" name="auto_pass_1"
+                                        placeholder="Password for Layer 1">
+                                </div>
+                                <div class="input-group">
+                                    <label>Inner Layer Password</label>
+                                    <input type="password" id="ml-auto-pass-2" name="auto_pass_2"
+                                        placeholder="Password for Layer 2">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="action-btn secondary">
+                                <i class="fa-solid fa-unlock"></i> Unwind Layers
+                            </button>
+                        </form>
+
+                        <!-- Multi-Layer Results Panel -->
+                        <div id="ml-results-panel" style="display: none; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                            <h3 style="color: var(--success); margin-bottom: 1rem; text-align: center;">Extraction Complete</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                <!-- Cover File -->
+                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
+                                    <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Cover File</h4>
+                                    <div id="ml-res-cover-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                        <!-- Content injected via JS -->
+                                    </div>
+                                </div>
+                                <!-- Inner Layer -->
+                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
+                                    <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Inner Layer</h4>
+                                    <div id="ml-res-inner-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                        <!-- Content injected via JS -->
+                                    </div>
+                                </div>
+                                <!-- Secret Message -->
+                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success);">
+                                    <h4 style="font-size: 0.8rem; color: var(--success); margin-bottom: 0.5rem;">Secret Data</h4>
+                                    <div id="ml-res-secret-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                        <!-- Content injected via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="ml-final-text" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-family: 'Space Mono', monospace; display: none; word-break: break-all;"></div>
+                            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; justify-content: center;">
+                                <a id="ml-download-btn" href="#" class="action-btn" style="display: none; width: auto;">
+                                    <i class="fa-solid fa-download"></i> Download Secret File
+                                </a>
+                                <button id="ml-share-btn" onclick="openShareModal('ml')" class="action-btn share-btn" style="display: none; width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
+                                    <i class="fa-solid fa-share-nodes"></i> Share
+                                </button>
+                                <button id="ml-native-share-btn" onclick="shareMultiLayerNative()" class="action-btn" style="display: none; width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                    <i class="fa-solid fa-share"></i> Direct
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+                <!-- HISTORY SECTION -->
+                <div id="history-section" class="section">
+                    <div class="glass-card">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2 style="font-size: 1.5rem;"><i class="fa-solid fa-clock-rotate-left"></i> System History
+                            </h2>
+                            <button onclick="clearHistory()" class="action-btn secondary"
+                                style="width: auto; padding: 0.5rem 1rem; color: var(--error); border-color: rgba(239, 68, 68, 0.3);">
+                                <i class="fa-solid fa-trash-can"></i> Clear History
+                            </button>
+                        </div>
+
+                        <div id="history-container" style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: separate; border-spacing: 0 10px;">
+                                <thead>
+                                    <tr
+                                        style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                        <th style="padding: 1rem; text-align: left;">Timestamp</th>
+                                        <th style="padding: 1rem; text-align: left;">Operation</th>
+                                        <th style="padding: 1rem; text-align: left;">Media</th>
+                                        <th style="padding: 1rem; text-align: left;">Status</th>
+                                        <th style="padding: 1rem; text-align: left;">Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body">
+                                    <!-- History rows will be injected here -->
+                                </tbody>
+                            </table>
+                            <div id="history-empty"
+                                style="text-align: center; padding: 3rem; color: var(--text-muted); display: none;">
+                                <i class="fa-solid fa-inbox"
+                                    style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                <p>No history records found.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <footer class="app-footer">
+                <div class="footer-left">
+                    <div class="footer-item">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>End-to-end encrypted</span>
+                    </div>
+                    <div class="footer-item">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Client-side processing</span>
+                    </div>
+                </div>
+                <div class="footer-version">
+                    SILENT v1.0 • Secure Layering Engine
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal"
+        style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div class="glass-card"
+            style="max-width: 450px; width: 90%; position: relative; border: 1px solid var(--primary-alpha-30); padding: 2rem;">
+            <button onclick="closeShareModal()"
+                style="position: absolute; top: 1.5rem; right: 1.5rem; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fa-solid fa-share-nodes" style="color: var(--primary);"></i> Share Secure Data
+            </h2>
+
+            <div class="share-options"
+                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                <a id="share-whatsapp" href="#" target="_blank" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); background: rgba(37, 211, 102, 0.1); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid rgba(37, 211, 102, 0.2);">
+                    <i class="fa-brands fa-whatsapp" style="font-size: 1.75rem; color: #25D366;"></i>
+                    <span style="font-size: 0.8rem;">WhatsApp</span>
+                </a>
+                <a id="share-telegram" href="#" target="_blank" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); background: rgba(0, 136, 204, 0.1); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid rgba(0, 136, 204, 0.2);">
+                    <i class="fa-brands fa-telegram" style="font-size: 1.75rem; color: #0088cc;"></i>
+                    <span style="font-size: 0.8rem;">Telegram</span>
+                </a>
+                <a id="share-twitter" href="#" target="_blank" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); background: rgba(29, 161, 242, 0.1); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid rgba(29, 161, 242, 0.2);">
+                    <i class="fa-brands fa-x-twitter" style="font-size: 1.75rem; color: #ffffff;"></i>
+                    <span style="font-size: 0.8rem;">Twitter/X</span>
+                </a>
+                <a id="share-email" href="#" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); background: rgba(234, 67, 53, 0.1); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid rgba(234, 67, 53, 0.2);">
+                    <i class="fa-solid fa-envelope" style="font-size: 1.75rem; color: #ea4335;"></i>
+                    <span style="font-size: 0.8rem;">Email</span>
+                </a>
+                <div onclick="copyShareLink()" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer; background: rgba(245, 196, 0, 0.1); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid rgba(245, 196, 0, 0.2);">
+                    <i class="fa-solid fa-link" style="font-size: 1.75rem; color: var(--primary);"></i>
+                    <span style="font-size: 0.8rem;">Copy Link</span>
+                </div>
+                <div id="qr-code-option" class="share-option-btn"
+                    style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer; background: rgba(255, 255, 255, 0.05); padding: 1rem; border-radius: 12px; transition: 0.3s; border: 1px solid var(--border);">
+                    <i class="fa-solid fa-qrcode" style="font-size: 1.75rem;"></i>
+                    <span style="font-size: 0.8rem;">QR Code</span>
+                </div>
+            </div>
+
+            <div class="share-link-box"
+                style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;">
+                <input type="text" id="share-url-input" readonly
+                    style="flex: 1; background: none; border: none; color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 0.75rem; outline: none;">
+                <button onclick="copyShareLink()"
+                    style="background: none; border: none; color: var(--primary); cursor: pointer;"><i
+                        class="fa-solid fa-clone"></i></button>
+            </div>
+
+            <!-- QR Code Section (Hidden by default) -->
+            <div id="qr-display" style="display: none; margin-top: 1.5rem; text-align: center;">
+                <div id="qr-placeholder"
+                    style="background: white; padding: 1rem; display: inline-block; border-radius: 12px;">
+                    <!-- QR code image will be generated here -->
+                    <img id="qr-image" src="" alt="QR Code" style="width: 150px; height: 150px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay"
+        style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+        <div
+            style="width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;">
+        </div>
+        <p style="color: white; margin-top: 1rem; font-weight: 500;">Processing...</p>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast">
+        <div id="toast-message"></div>
+    </div>
+
+    <script>
+        function setMLOperation(operation) {
+            const hideSection = document.getElementById('ml-hide-section');
+            const extractSection = document.getElementById('ml-extract-section');
+            const hideButton = document.querySelector('#multilayer-section .tabs .tab-btn[onclick*="\'hide\'"]');
+            const extractButton = document.querySelector('#multilayer-section .tabs .tab-btn[onclick*="\'extract\'"]');
+
+            if (operation === 'hide') {
+                hideSection.style.display = 'block';
+                extractSection.style.display = 'none';
+                hideButton.classList.add('active');
+                extractButton.classList.remove('active');
+            } else {
+                hideSection.style.display = 'none';
+                extractSection.style.display = 'block';
+                hideButton.classList.remove('active');
+                extractButton.classList.add('active');
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

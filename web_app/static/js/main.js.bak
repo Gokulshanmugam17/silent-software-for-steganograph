@@ -1,0 +1,915 @@
+let state = {
+    mediaType: 'text',
+    operation: 'hide',
+    dataType: 'text'
+};
+
+// History Manager
+const OperationHistory = {
+    storageKey: 'steganography_operation_history',
+    maxItems: 50,
+
+    getHistory() {
+        const stored = localStorage.getItem(this.storageKey);
+        return stored ? JSON.parse(stored) : [];
+    },
+
+    addEntry(entry) {
+        const history = this.getHistory();
+        const newEntry = {
+            id: Date.now(),
+            timestamp: new Date().toLocaleString(),
+            operation: entry.operation,
+            mediaType: entry.mediaType,
+            dataType: entry.dataType,
+            original: entry.original || null,
+            result: entry.result,
+            success: entry.success,
+            message: entry.message || ''
+        };
+        
+        history.unshift(newEntry);
+        if (history.length > this.maxItems) {
+            history.pop();
+        }
+        
+        localStorage.setItem(this.storageKey, JSON.stringify(history));
+        return newEntry;
+    },
+
+    clear() {
+        localStorage.removeItem(this.storageKey);
+    }
+};
+
+// This will be initialized at the end of the file in a single consolidated listener
+
+// --- State Management ---
+
+function setMediaType(type) {
+    state.mediaType = type;
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    
+    // Update page title based on type
+    let titleMap = {
+        'text': 'Text Steganography',
+        'image': 'Image Steganography',
+        'audio': 'Audio Steganography',
+        'video': 'Video Steganography',
+        'multilayer': 'Multi-Layer Steganography',
+        'history': 'Operation History'
+    };
+    document.getElementById('page-title').textContent = titleMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
+
+    // Show/hide appropriate inputs based on media type
+    const isText = type === 'text';
+    const isImage = type === 'image';
+    const isMulti = type === 'multilayer';
+    const isHistory = type === 'history';
+
+    // Hide section
+    const coverTextGroup = document.getElementById('cover-text-group');
+    const sourceUploadGroup = document.getElementById('source-upload-group');
+    if (coverTextGroup) coverTextGroup.style.display = isText ? 'block' : 'none';
+    if (sourceUploadGroup) sourceUploadGroup.style.display = isText ? 'none' : 'block';
+    
+    // Show/hide image comparison container
+    const imageComparison = document.getElementById('image-comparison-display');
+    if (imageComparison) {
+        imageComparison.style.display = isImage ? 'none' : 'none'; // Hidden by default, shown after processing
+    }
+
+    // Extract section
+    const stegoTextGroup = document.getElementById('stego-text-group');
+    const stegoUploadGroup = document.getElementById('stego-upload-group');
+    if (stegoTextGroup) stegoTextGroup.style.display = isText ? 'block' : 'none';
+    if (stegoUploadGroup) stegoUploadGroup.style.display = isText ? 'none' : 'block';
+
+    // Toggle history - HIDE first
+    const historySection = document.getElementById('history-section');
+    if (historySection) {
+        historySection.style.display = isHistory ? 'block' : 'none';
+        if (isHistory) {
+            historySection.classList.add('active');
+        } else {
+            historySection.classList.remove('active');
+        }
+    }
+    // Toggle main visibility
+    const hideSection = document.getElementById('hide-section');
+    const extractSection = document.getElementById('extract-section');
+    const tabs = document.querySelector('.tabs');
+
+    if (isHistory) {
+        if (hideSection) hideSection.style.display = 'none';
+        if (extractSection) extractSection.style.display = 'none';
+        if (tabs) tabs.style.display = 'none';
+        loadOperationHistory();
+    } else if (isMulti) {
+        if (hideSection) hideSection.style.display = 'none';
+        if (extractSection) extractSection.style.display = 'none';
+        if (tabs) tabs.style.display = 'flex';
+    } else {
+        // Normal modes
+        if (hideSection) hideSection.style.display = state.operation === 'hide' ? 'block' : 'none';
+        if (extractSection) extractSection.style.display = state.operation === 'extract' ? 'block' : 'none';
+        if (tabs) tabs.style.display = 'flex';
+    }
+
+    // Multi-Layer Specific
+    if (tabs) tabs.style.display = isMulti ? 'none' : 'flex';
+
+    const mlHide = document.getElementById('multilayer-section');
+    const mlExtract = document.getElementById('multilayer-extract-section');
+
+    if (isMulti) {
+        tabs.style.display = 'flex';
+        mlHide.classList.toggle('active', state.operation === 'hide');
+        mlExtract.classList.toggle('active', state.operation === 'extract');
+    } else {
+        if (mlHide) mlHide.classList.remove('active');
+        if (mlExtract) mlExtract.classList.remove('active');
+    }
+
+    // Hide data type switcher for text module
+    const dataSwitchers = document.querySelectorAll('.data-type-switch');
+    dataSwitchers.forEach(switcher => {
+        switcher.style.display = (isText || isMulti || isHistory) ? 'none' : 'flex';
+    });
+
+    updateUI();
+}
+
+function setOperation(op) {
+    state.operation = op;
+    document.querySelectorAll('.tab-btn').forEach((btn, index) => {
+        btn.classList.toggle('active', (index === 0 && op === 'hide') || (index === 1 && op === 'extract'));
+    });
+
+    if (state.mediaType === 'multilayer') {
+        document.getElementById('multilayer-section').classList.toggle('active', op === 'hide');
+        document.getElementById('multilayer-extract-section').classList.toggle('active', op === 'extract');
+
+        document.getElementById('hide-section').classList.remove('active');
+        document.getElementById('extract-section').classList.remove('active');
+    } else {
+        document.getElementById('hide-section').classList.toggle('active', op === 'hide');
+        document.getElementById('extract-section').classList.toggle('active', op === 'extract');
+
+        document.getElementById('multilayer-section').classList.remove('active');
+        document.getElementById('multilayer-extract-section').classList.remove('active');
+    }
+}
+
+function setDataType(type) {
+    state.dataType = type;
+    const isHide = state.operation === 'hide';
+    const container = isHide ? document.getElementById('hide-section') : document.getElementById('extract-section');
+
+    container.querySelectorAll('.switch-label').forEach((label, index) => {
+        label.classList.toggle('active', (index === 0 && type === 'text') || (index === 1 && type === 'media'));
+    });
+
+    if (isHide) {
+        document.getElementById('text-input-group').style.display = type === 'text' ? 'block' : 'none';
+        document.getElementById('media-input-group').style.display = type === 'media' ? 'block' : 'none';
+    }
+}
+
+function updateUI() {
+    // Media-specific adjustments can go here if needed
+}
+
+// --- File Handling ---
+
+function initDragAndDrop() {
+    const areas = document.querySelectorAll('.upload-area');
+
+    areas.forEach(area => {
+        const input = area.querySelector('input');
+        const info = area.querySelector('.file-info');
+
+        area.addEventListener('click', () => input.click());
+
+        input.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                info.textContent = e.target.files[0].name;
+                area.classList.add('has-file');
+            }
+        });
+
+        area.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            area.classList.add('dragover');
+        });
+
+        area.addEventListener('dragleave', () => {
+            area.classList.remove('dragover');
+        });
+
+        area.addEventListener('drop', (e) => {
+            e.preventDefault();
+            area.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files;
+                info.textContent = e.dataTransfer.files[0].name;
+                area.classList.add('has-file');
+            }
+        });
+    });
+}
+
+// --- Helpers ---
+
+function togglePassword(icon) {
+    const input = icon.previousElementSibling;
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toast-message');
+    msgEl.textContent = msg;
+    toast.style.borderLeft = isError ? '4px solid #ef4444' : '4px solid #10b981';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function toggleLoading(show) {
+    document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+}
+
+// --- Dynamic Layer UI Management ---
+
+function updateLayerUploadUI(layer) {
+    const typeSelect = document.getElementById(`ml-${layer}-type`);
+    const uploadArea = document.getElementById(`ml-${layer}-upload`);
+    const textArea = document.getElementById(`ml-${layer}-text`);
+    const type = typeSelect.value;
+
+    if (type === 'text') {
+        uploadArea.style.display = 'none';
+        textArea.style.display = 'block';
+    } else {
+        uploadArea.style.display = 'block';
+        textArea.style.display = 'none';
+    }
+}
+
+function updateExtractLayerUI(layer) {
+    const typeSelect = document.getElementById(`ml-ex-${layer}-type`);
+    const type = typeSelect.value;
+    
+    // Update UI based on type if needed
+    // This ensures proper display for extract section
+    if (type === 'text') {
+        // Text layers might need special handling
+    }
+}
+
+// Form event listeners will be attached in the consolidated DOMContentLoaded below
+
+// --- API Submission ---
+
+// Form listeners now attached in consolidated DOMContentLoaded
+
+// --- Helper Functions for Output Display ---
+
+function displayHideOutput(result, mediaType) {
+    // Show image comparison for image media type
+    if (mediaType === 'image' && result.download_url) {
+        const sourceFileInput = document.getElementById('source-file');
+        let coverImageUrl = null;
+        
+        // Get cover image preview if available
+        if (sourceFileInput && sourceFileInput.files && sourceFileInput.files[0]) {
+            const coverFile = sourceFileInput.files[0];
+            if (coverFile.type.startsWith('image/')) {
+                coverImageUrl = URL.createObjectURL(coverFile);
+            }
+        }
+        
+        // Convert relative URL to absolute if needed
+        let hiddenImageUrl = result.download_url;
+        if (hiddenImageUrl && !hiddenImageUrl.startsWith('http') && !hiddenImageUrl.startsWith('data:')) {
+            // If it's a relative path, make it absolute
+            if (hiddenImageUrl.startsWith('/')) {
+                hiddenImageUrl = window.location.origin + hiddenImageUrl;
+            } else {
+                hiddenImageUrl = window.location.origin + '/' + hiddenImageUrl;
+            }
+        }
+        
+        // Show image comparison with cover and hidden images
+        showImageComparison(coverImageUrl, hiddenImageUrl);
+        
+        // Hide text output area for images
+        const stegoOutput = document.getElementById('stego-output-area');
+        if (stegoOutput) {
+            stegoOutput.style.display = 'none';
+        }
+    } else {
+        // Show text output for non-image types
+        const stegoOutput = document.getElementById('stego-output-area');
+        if (stegoOutput) {
+            stegoOutput.style.display = 'block';
+            const outputContent = document.getElementById('stego-text-output');
+            if (outputContent) {
+                const outputText = `
+📊 STEGANOGRAPHY RESULT - HIDE OPERATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Status: SUCCESS
+✓ Media Type: ${mediaType.toUpperCase()}
+✓ Output File: ${result.filename || 'output'}
+✓ File Size: ${formatFileSize(result.filesize) || 'N/A'}
+✓ Message: ${result.message}
+✓ Timestamp: ${new Date().toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                `.trim();
+                outputContent.textContent = outputText;
+                outputContent.style.fontFamily = 'monospace';
+            }
+            stegoOutput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Hide image comparison for non-image types
+        hideImageComparison();
+    }
+}
+
+function displayExtractOutput(result) {
+    const resArea = document.getElementById('result-area');
+    if (resArea) {
+        resArea.style.display = 'block';
+        const textResult = document.getElementById('text-result');
+        if (textResult) {
+            if (typeof result.data === 'string' && result.data.length > 500) {
+                textResult.innerHTML = `
+<div style="font-weight: 600; color: var(--accent); margin-bottom: 10px;">
+📂 EXTRACTED DATA PREVIEW (${result.data.length} characters)
+</div>
+<div style="white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 0.9rem;">
+${result.data.substring(0, 500)}...
+</div>
+<div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 10px;">
+[Showing first 500 characters - Download complete file]
+</div>
+                `;
+            } else {
+                textResult.textContent = result.data || 'Data extracted successfully';
+            }
+        }
+        resArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return 'N/A';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 B';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function copyToClipboard() {
+    const content = document.getElementById('stego-text-output')?.textContent || 
+                   document.getElementById('text-result')?.textContent;
+    if (content) {
+        navigator.clipboard.writeText(content).then(() => {
+            showToast('✓ Copied to clipboard!');
+        }).catch(() => {
+            showToast('Failed to copy', true);
+        });
+    }
+}
+
+async function submitMultiLayer(op) {
+    toggleLoading(true);
+    const formId = op === 'hide' ? 'multilayer-hide-form' : 'multilayer-extract-form';
+    const formData = new FormData(document.getElementById(formId));
+    formData.append('operation', op);
+
+    try {
+        const response = await fetch('/multilayer', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message);
+            
+            // Display output in interface
+            if (op === 'hide') {
+                displayHideOutput(result, 'Multi-Layer');
+            } else if (op === 'extract') {
+                displayExtractOutput(result);
+            }
+            
+            // Download file if URL provided
+            if (result.download_url) {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.href = result.download_url;
+                    link.download = result.filename || `multilayer_output_${Date.now()}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, 500);
+            }
+        } else {
+            showToast(result.message || result.error, true);
+        }
+    } catch (error) {
+        showToast('Processing failed', true);
+        console.error(error);
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+async function submitForm(type) {
+    toggleLoading(true);
+    const formData = new FormData(type === 'hide' ? document.getElementById('hide-form') : document.getElementById('extract-form'));
+
+    formData.append('operation', state.operation);
+    formData.append('media_type', state.mediaType);
+    formData.append('data_type', state.dataType);
+
+    try {
+        const response = await fetch('/process', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Capture original data for history
+            let originalData = null;
+            if (state.operation === 'hide') {
+                if (state.dataType === 'text') {
+                    originalData = document.getElementById('cover-text').value;
+                }
+            } else {
+                if (state.dataType === 'text') {
+                    originalData = document.getElementById('stego-text-input').value;
+                }
+            }
+            
+            // Add to operation history
+            OperationHistory.addEntry({
+                operation: state.operation,
+                mediaType: state.mediaType,
+                dataType: state.dataType,
+                original: originalData,
+                result: result.data || result.message,
+                success: true,
+                message: result.message
+            });
+            
+            showToast(result.message);
+            
+            // Display output in interface
+            if (state.operation === 'hide') {
+                displayHideOutput(result, state.mediaType);
+            } else if (state.operation === 'extract') {
+                displayExtractOutput(result);
+            }
+            
+            // Download automatically if URL provided
+            if (result.download_url) {
+                setTimeout(() => {
+                    const link = document.createElement('a');
+                    link.href = result.download_url;
+                    link.download = result.filename || `output_${Date.now()}`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }, 500);
+            }
+        } else {
+            // Add failed attempt to history
+            OperationHistory.addEntry({
+                operation: state.operation,
+                mediaType: state.mediaType,
+                dataType: state.dataType,
+                original: null,
+                result: null,
+                success: false,
+                message: result.message || result.error
+            });
+            
+            showToast(result.message || result.error, true);
+        }
+    } catch (error) {
+        // Add error to history
+        OperationHistory.addEntry({
+            operation: state.operation,
+            mediaType: state.mediaType,
+            dataType: state.dataType,
+            original: null,
+            result: null,
+            success: false,
+            message: 'Processing error'
+        });
+        
+        showToast('An error occurred. Please check console.', true);
+        console.error(error);
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+// --- History Logic ---
+
+async function loadHistory() {
+    try {
+        const response = await fetch('/history');
+        const data = await response.json();
+
+        const tbody = document.getElementById('history-table-body');
+        const noMsg = document.getElementById('no-history-msg');
+        tbody.innerHTML = '';
+
+        if (data.history.length === 0) {
+            noMsg.style.display = 'block';
+            return;
+        }
+
+        noMsg.style.display = 'none';
+
+        data.history.forEach(item => {
+            const row = document.createElement('tr');
+            row.style.borderBottom = '1px solid var(--border)';
+
+            const shareBtn = item.output && item.status === 'Success' 
+                ? `<button onclick="selectHistoryFile('${item.output}', '${item.output.split('/').pop()}')" style="background: var(--accent); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.3s;" title="Share this file">
+                    <i class="fa-solid fa-share-nodes" style="margin-right: 4px;"></i> Share
+                   </button>`
+                : '';
+
+            row.innerHTML = `
+                <td style="padding: 12px; color: var(--text-muted); font-size: 0.9em;">${item.timestamp}</td>
+                <td style="padding: 12px; font-weight: 500;">${item.operation.toUpperCase()}</td>
+                <td style="padding: 12px; color: var(--accent);">${item.module.toUpperCase()}</td>
+                <td style="padding: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.source}">${item.source}</td>
+                <td style="padding: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.output}">${item.output} ${shareBtn}</td>
+                <td style="padding: 12px;">${getStatusBadge(item.status)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+    } catch (error) {
+        console.error("Failed to load history:", error);
+    }
+}
+
+function getStatusBadge(status) {
+    const color = status === 'Success' ? '#10b981' : '#ef4444';
+    const bg = status === 'Success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    return `<span style="background: ${bg}; color: ${color}; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 600;">${status}</span>`;
+}
+
+async function clearHistory() {
+    if (!confirm("Are you sure you want to clear all history?")) return;
+
+    try {
+        await fetch('/history', { method: 'DELETE' });
+        loadHistory();
+        showToast("History cleared");
+    } catch (error) {
+        showToast("Failed to clear history", true);
+    }
+}
+
+// --- Operation History Functions ---
+
+function loadOperationHistory() {
+    const history = OperationHistory.getHistory();
+    const timelineContainer = document.getElementById('history-timeline');
+    
+    if (!timelineContainer) return;
+    
+    if (history.length === 0) {
+        timelineContainer.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                <i class="fa-solid fa-history" style="font-size: 3rem; opacity: 0.5; margin-bottom: 10px; display: block;"></i>
+                <p>No operations recorded yet. Perform hide/extract operations to see real-time preview here.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    timelineContainer.innerHTML = '';
+    
+    history.forEach((entry, index) => {
+        const isSuccess = entry.success;
+        const iconClass = isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle';
+        const statusColor = isSuccess ? '#10b981' : '#ef4444';
+        const bgColor = isSuccess ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+        
+        const card = document.createElement('div');
+        card.style.cssText = `
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            border-left: 4px solid ${statusColor};
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+            cursor: pointer;
+        `;
+        
+        card.onmouseover = () => {
+            card.style.transform = 'translateX(4px)';
+            card.style.boxShadow = 'var(--shadow)';
+        };
+        card.onmouseout = () => {
+            card.style.transform = 'translateX(0)';
+            card.style.boxShadow = 'none';
+        };
+        
+        let resultPreview = '';
+        if (entry.result) {
+            if (typeof entry.result === 'string' && entry.result.length > 200) {
+                resultPreview = entry.result.substring(0, 200) + '...';
+            } else if (typeof entry.result === 'string') {
+                resultPreview = entry.result;
+            } else {
+                resultPreview = JSON.stringify(entry.result).substring(0, 100) + '...';
+            }
+        }
+        
+        const operationIcon = {
+            'hide': 'fa-lock',
+            'extract': 'fa-lock-open'
+        }[entry.operation] || 'fa-question';
+        
+        const mediaIcon = {
+            'text': 'fa-font',
+            'image': 'fa-image',
+            'audio': 'fa-music',
+            'video': 'fa-film'
+        }[entry.mediaType] || 'fa-file';
+        
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center; flex: 1;">
+                    <i class="fa-solid ${iconClass}" style="color: ${statusColor}; font-size: 1.2rem;"></i>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text);">
+                            <i class="fa-solid ${operationIcon}"></i> 
+                            ${entry.operation.charAt(0).toUpperCase() + entry.operation.slice(1)}
+                            <span style="color: var(--accent); margin: 0 8px;">•</span>
+                            <i class="fa-solid ${mediaIcon}"></i> 
+                            ${entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                            ${entry.timestamp}
+                        </div>
+                    </div>
+                </div>
+                <span style="background: ${bgColor}; color: ${statusColor}; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">
+                    ${isSuccess ? 'Success' : 'Failed'}
+                </span>
+            </div>
+            
+            ${entry.original ? `
+                <div style="margin-top: 12px; padding: 10px; background: var(--surface); border-radius: 6px; border-left: 3px solid var(--text-muted);">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 4px;">📄 Original:</div>
+                    <div style="color: var(--text); font-size: 0.9rem; word-break: break-word; max-height: 80px; overflow-y: auto;">
+                        ${entry.original.substring(0, 300)}${entry.original.length > 300 ? '...' : ''}
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${resultPreview ? `
+                <div style="margin-top: 10px; padding: 10px; background: var(--surface); border-radius: 6px; border-left: 3px solid ${statusColor};">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 4px;">✨ Result:</div>
+                    <div style="color: var(--text); font-size: 0.9rem; word-break: break-word; max-height: 80px; overflow-y: auto;">
+                        ${resultPreview}
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${entry.message ? `
+                <div style="margin-top: 10px; padding: 8px; background: var(--accent); color: white; border-radius: 4px; font-size: 0.9rem;">
+                    ℹ️ ${entry.message}
+                </div>
+            ` : ''}
+        `;
+        
+        timelineContainer.appendChild(card);
+    });
+}
+
+// ============================================
+// CONSOLIDATED INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize drag and drop for all upload areas
+    initDragAndDrop();
+    updateUI();
+    loadOperationHistory();
+    
+    // Initialize layer UI
+    updateLayerUploadUI('layer1');
+    updateLayerUploadUI('layer2');
+    
+    // Setup hide form listeners
+    const hideForm = document.getElementById('hide-form');
+    if (hideForm) {
+        hideForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitForm('hide');
+        });
+    }
+    
+    // Setup extract form listeners
+    const extractForm = document.getElementById('extract-form');
+    if (extractForm) {
+        extractForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitForm('extract');
+        });
+    }
+    
+    // Setup multi-layer forms
+    const mlHideForm = document.getElementById('multilayer-hide-form');
+    if (mlHideForm) {
+        mlHideForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitMultiLayer('hide');
+        });
+    }
+    
+    const mlExtractForm = document.getElementById('multilayer-extract-form');
+    if (mlExtractForm) {
+        mlExtractForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitMultiLayer('extract');
+        });
+    
+    // Setup image preview for source file input (cover image)
+    const sourceFileInput = document.getElementById('source-file');
+    if (sourceFileInput) {
+        sourceFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0] && e.target.files[0].type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const coverImagePreview = document.getElementById('cover-image-preview');
+                    const coverPlaceholder = coverImagePreview ? coverImagePreview.previousElementSibling : null;
+                    if (coverImagePreview) {
+                        coverImagePreview.src = event.target.result;
+                        coverImagePreview.style.display = 'block';
+                    }
+                    if (coverPlaceholder) {
+                        coverPlaceholder.style.display = 'none';
+                    }
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    }
+    
+    // Setup image preview for stego file input (extract operation)
+    const stegoFileInput = document.getElementById('stego-file');
+    if (stegoFileInput) {
+        stegoFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0] && e.target.files[0].type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // For extract, we can show it in the cover image display
+                    const coverImagePreview = document.getElementById('cover-image-preview');
+                    const coverPlaceholder = coverImagePreview ? coverImagePreview.previousElementSibling : null;
+                    if (coverImagePreview) {
+                        coverImagePreview.src = event.target.result;
+                        coverImagePreview.style.display = 'block';
+                    }
+                    if (coverPlaceholder) {
+                        coverPlaceholder.style.display = 'none';
+                    }
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    }
+});
+
+// Image Comparison Display Functions
+
+// Image Comparison Display Functions
+function showImageComparison(coverImageUrl, hiddenImageUrl) {
+    const comparisonContainer = document.getElementById('image-comparison-display');
+    const coverImagePreview = document.getElementById('cover-image-preview');
+    const hiddenImagePreview = document.getElementById('hidden-image-preview');
+    const coverPlaceholder = coverImagePreview ? coverImagePreview.previousElementSibling : null;
+    const hiddenPlaceholder = hiddenImagePreview ? hiddenImagePreview.previousElementSibling : null;
+    
+    if (comparisonContainer) {
+        comparisonContainer.style.display = 'block';
+        
+        // Display cover image
+        if (coverImageUrl && coverImagePreview) {
+            coverImagePreview.src = coverImageUrl;
+            coverImagePreview.style.display = 'block';
+            if (coverPlaceholder) coverPlaceholder.style.display = 'none';
+        }
+        
+        // Display hidden image
+        if (hiddenImageUrl && hiddenImagePreview) {
+            hiddenImagePreview.src = hiddenImageUrl;
+            hiddenImagePreview.style.display = 'block';
+            if (hiddenPlaceholder) hiddenPlaceholder.style.display = 'none';
+        }
+        
+        // Scroll to comparison view
+        comparisonContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function hideImageComparison() {
+    const comparisonContainer = document.getElementById('image-comparison-display');
+    if (comparisonContainer) {
+        comparisonContainer.style.display = 'none';
+    }
+}
+
+function syncDisplayImages() {
+    const coverImage = document.getElementById('cover-image-preview');
+    const hiddenImage = document.getElementById('hidden-image-preview');
+    
+    // Animate both images to show they're synced
+    if (coverImage && coverImage.style.display !== 'none') {
+        coverImage.style.animation = 'pulse 0.5s ease-in-out';
+    }
+    if (hiddenImage && hiddenImage.style.display !== 'none') {
+        hiddenImage.style.animation = 'pulse 0.5s ease-in-out';
+    }
+    
+    // Reset animation after it completes
+    setTimeout(() => {
+        if (coverImage) coverImage.style.animation = '';
+        if (hiddenImage) hiddenImage.style.animation = '';
+    }, 500);
+    
+    showToast('Images displayed in sync');
+}
+
+function resetImageDisplay() {
+    const coverImage = document.getElementById('cover-image-preview');
+    const hiddenImage = document.getElementById('hidden-image-preview');
+    const coverPlaceholder = coverImage ? coverImage.previousElementSibling : null;
+    const hiddenPlaceholder = hiddenImage ? hiddenImage.previousElementSibling : null;
+    
+    if (coverImage) {
+        coverImage.src = '';
+        coverImage.style.display = 'none';
+        if (coverPlaceholder) coverPlaceholder.style.display = 'block';
+    }
+    
+    if (hiddenImage) {
+        hiddenImage.src = '';
+        hiddenImage.style.display = 'none';
+        if (hiddenPlaceholder) hiddenPlaceholder.style.display = 'block';
+    }
+    
+    showToast('Image display reset');
+}
+
+// Update image preview when file is selected
+function updateImagePreview(inputId, previewId, placeholderId) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+    const placeholder = document.getElementById(placeholderId);
+    
+    if (input && input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (preview) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                }
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+}
