@@ -699,3 +699,214 @@ textarea {
 .toast.show {
     display: block !important;
 }
+
+/* --- Responsive Design Enhancements --- */
+
+/* Tablet & Smaller Desktops */
+@media screen and (max-width: 1024px) {
+    .sidebar {
+        width: 240px;
+    }
+
+    .comparison-panels {
+        gap: 1rem;
+    }
+}
+
+/* Mobile Devices (Tablets & Phones) */
+@media screen and (max-width: 768px) {
+    body {
+        overflow: auto;
+        /* Allow scrolling on mobile if needed */
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .app-container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 1rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        backdrop-filter: blur(20px);
+    }
+
+    .logo {
+        margin-bottom: 0;
+        font-size: 1.25rem;
+    }
+
+    .nav-links {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 5px;
+        scrollbar-width: none;
+        /* Hide scrollbar for nav */
+    }
+
+    .nav-links::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-btn {
+        padding: 0.6rem 0.8rem;
+        white-space: nowrap;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-btn span {
+        display: none;
+        /* Icon only on mobile sidebar top */
+    }
+
+    .nav-btn i {
+        font-size: 1.1rem;
+    }
+
+    .sidebar .nav-btn.active {
+        border-left: none;
+        border-bottom: 2px solid var(--primary);
+        background: var(--primary-alpha-10);
+    }
+
+    .main-content {
+        height: auto;
+        overflow: visible;
+    }
+
+    .app-header {
+        height: auto;
+        padding: 1.25rem 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1.25rem;
+    }
+
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+        border-top: 1px solid var(--border);
+        padding-top: 1rem;
+    }
+
+    .status-indicator {
+        display: none;
+    }
+
+    .header-icon-box {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .content-area {
+        padding: 1rem;
+        overflow: visible;
+    }
+
+    .glass-card {
+        padding: 1.25rem;
+        border-radius: 12px;
+    }
+
+    .comparison-panels {
+        grid-template-columns: 1fr;
+    }
+
+    .image-panel {
+        min-height: 250px;
+    }
+
+    .upload-area {
+        padding: 2rem 1rem;
+    }
+
+    .tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 1rem;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+
+    .data-type-switch {
+        width: 100%;
+        display: flex;
+    }
+
+    .switch-label {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.85rem;
+    }
+
+    .app-footer {
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 1.5rem 1rem;
+        text-align: center;
+    }
+
+    .footer-left {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Very Small Devices */
+@media screen and (max-width: 480px) {
+    .logo span {
+        display: none;
+    }
+
+    .header-info h1 {
+        font-size: 1.1rem;
+    }
+
+    .badge-enc {
+        display: none;
+    }
+
+    .share-options {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .action-btn {
+        font-size: 0.9rem;
+        padding: 0.8rem 1rem;
+    }
+
+    /* Multi-layer grid responsiveness */
+    #multilayer-hide-form>div[style*="display: grid"],
+    #multilayer-extract-form>div[style*="display: grid"],
+    div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: scaleY(1);
+    }
+
+    50% {
+        transform: scaleY(1.5);
+    }
+}

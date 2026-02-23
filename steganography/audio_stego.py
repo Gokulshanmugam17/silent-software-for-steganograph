@@ -119,20 +119,17 @@ class AudioSteganography:
             if password:
                 text = encrypt_message(text, password)
             
-            binary_text = text_to_binary(text) + self.delimiter
+            # Use NumPy for efficient binary conversion
+            text_bytes = text.encode('utf-8')
+            text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
+            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            binary_array = np.concatenate([text_bits, del_bits])
             
-            # Check capacity
-            if len(binary_text) > len(audio_array):
-                return False, f"Text too large! Maximum {len(audio_array) // 8} characters allowed."
+            if len(binary_array) > len(audio_array):
+                return False, f"Text too large! Maximum {len(audio_array) // 8} bytes allowed."
             
-            # Hide the data in LSB
-            total_bits = len(binary_text)
-            for i, bit in enumerate(binary_text):
-                if callback and i % 10000 == 0:
-                    callback(int((i / total_bits) * 100))
-                
-                # Modify only the LSB of the 16-bit sample
-                audio_array[i] = (audio_array[i] & ~1) | int(bit)
+            # Efficiently apply bits to LSBs using NumPy
+            audio_array[:len(binary_array)] = (audio_array[:len(binary_array)] & ~1) | binary_array
             
             # Ensure output is WAV for stego integrity
             if not output_path.lower().endswith('.wav'):
@@ -169,25 +166,25 @@ class AudioSteganography:
             # Open the audio file and get samples
             audio_array, params, _ = self._read_audio_data(audio_path)
             
-            binary_bits = []
-            found = False
-            total_samples = len(audio_array)
-            del_len = len(self.delimiter)
+            # Extract LSBs efficiently using NumPy
+            lsbs = (audio_array & 1).astype(np.uint8)
             
-            for i, sample in enumerate(audio_array):
-                if callback and i % 10000 == 0:
-                    callback(int((i / total_samples) * 50))
-                
-                binary_bits.append(str(sample & 1))
-                
-                # Check for delimiter at byte boundaries
-                if len(binary_bits) >= del_len and len(binary_bits) % 8 == 0:
-                    if "".join(binary_bits[-del_len:]) == self.delimiter:
-                        binary_data = "".join(binary_bits[:-del_len])
-                        found = True
-                        break
-            else:
+            # Convert delimiter to bits for search
+            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            
+            # Find delimiter
+            found_index = -1
+            # Check in chunks to improve speed
+            for i in range(0, len(lsbs) - len(delimiter_bits), 8):
+                if np.array_equal(lsbs[i : i + len(delimiter_bits)], delimiter_bits):
+                    found_index = i
+                    break
+            
+            if found_index == -1:
                 return False, "No hidden message found or message is corrupted."
+            
+            binary_data = "".join(map(str, lsbs[:found_index]))
+            found = True
             
             if callback:
                 callback(75)
@@ -334,20 +331,24 @@ class AudioSteganography:
             if password:
                 data = encrypt_data(data, password)
             
+            # Header format: {{FILE:filename,SIZE:size}}
             header = f"{{{{FILE:{filename},SIZE:{len(data)}}}}}"
-            full_binary = text_to_binary(header) + bytes_to_binary(data) + self.delimiter
+            
+            header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
+            data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
+            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            
+            binary_array = np.concatenate([header_bits, data_bits, del_bits])
             
             # Read cover audio
             audio_array, params, audio_segment = self._read_audio_data(cover_path)
             audio_array = audio_array.copy()
             
-            if len(full_binary) > len(audio_array):
-                return False, f"File too large! Content needs {len(full_binary)} bits, but only {len(audio_array)} bits available."
+            if len(binary_array) > len(audio_array):
+                return False, f"File too large! Content needs {len(binary_array)} bits, but only {len(audio_array)} bits available."
 
-            for i, bit in enumerate(full_binary):
-                if callback and i % 10000 == 0:
-                    callback(int((i / len(full_binary)) * 100))
-                audio_array[i] = (audio_array[i] & ~1) | int(bit)
+            # Efficiently apply bits to LSBs using NumPy
+            audio_array[:len(binary_array)] = (audio_array[:len(binary_array)] & ~1) | binary_array
 
             # Ensure output is WAV
             if not output_path.lower().endswith('.wav'):
@@ -371,21 +372,44 @@ class AudioSteganography:
             # Read stego audio
             audio_array, params, _ = self._read_audio_data(stego_path)
             
-            binary_bits = []
-            found = False
-            total_samples = len(audio_array)
-            del_len = len(self.delimiter)
+            # Use NumPy to extract all LSBs
+            lsbs = (audio_array & 1).astype(np.uint8)
             
-            for i, sample in enumerate(audio_array):
-                if callback and i % 50000 == 0:
-                    callback(int((i / total_samples) * 50))
-                binary_bits.append(str(sample & 1))
-                
-                if len(binary_bits) >= del_len and len(binary_bits) % 8 == 0:
-                    if "".join(binary_bits[-del_len:]) == self.delimiter:
-                        binary_data = "".join(binary_bits[:-del_len])
-                        found = True
-                        break
+            # Find delimiter
+            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            delimiter_index = -1
+            for i in range(0, len(lsbs) - len(delimiter_bits), 8):
+                if np.array_equal(lsbs[i : i + len(delimiter_bits)], delimiter_bits):
+                    delimiter_index = i
+                    break
+
+            if delimiter_index == -1:
+                return False, "No hidden file found."
+
+            # Efficiently extract header and data
+            header_end_marker_bits = (np.fromiter(text_to_binary('}}'), dtype='u1') - 48).astype(np.uint8)
+            header_end_index = -1
+            for i in range(0, delimiter_index - len(header_end_marker_bits), 8):
+                if np.array_equal(lsbs[i : i + len(header_end_marker_bits)], header_end_marker_bits):
+                    header_end_index = i
+                    break
+            
+            if header_end_index == -1:
+                return False, "Invalid file format (No header detected)."
+            
+            header_binary = "".join(map(str, lsbs[:header_end_index + 16])) # 16 bits for '}}'
+            header_text = binary_to_text(header_binary)
+            
+            import re
+            match = re.search(r"{{FILE:(.+?),SIZE:(\d+)}}", header_text)
+            if not match: return False, "Invalid header format."
+            
+            filename = match.group(1)
+            filesize = int(match.group(2))
+            
+            data_start = header_end_index + 16
+            binary_data = "".join(map(str, lsbs[data_start : data_start + filesize * 8]))
+            found = True
             
             if not found: return False, "No hidden file found."
             

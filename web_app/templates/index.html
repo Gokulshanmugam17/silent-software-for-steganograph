@@ -201,6 +201,80 @@
                             </button>
                         </form>
 
+                        <!-- Audio Output Display -->
+                        <div id="audio-output-display" class="glass-card"
+                            style="display: none; margin-top: 2rem; border-color: var(--primary);">
+                            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                                <i class="fa-solid fa-music"></i> Audio Steganography Output
+                            </h3>
+                            <div class="audio-player-container"
+                                style="background: rgba(0,0,0,0.2); padding: 2rem; border-radius: 20px; text-align: center;">
+                                <div class="audio-visualizer-mock"
+                                    style="height: 60px; display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 1.5rem;">
+                                    <div class="bar"
+                                        style="height: 20px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1s infinite;">
+                                    </div>
+                                    <div class="bar"
+                                        style="height: 40px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1.2s infinite;">
+                                    </div>
+                                    <div class="bar"
+                                        style="height: 30px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 0.8s infinite;">
+                                    </div>
+                                    <div class="bar"
+                                        style="height: 50px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1.1s infinite;">
+                                    </div>
+                                    <div class="bar"
+                                        style="height: 25px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 0.9s infinite;">
+                                    </div>
+                                </div>
+                                <audio id="stego-audio-player" controls
+                                    style="width: 100%; filter: invert(1) hue-rotate(180deg) brightness(1.5);"></audio>
+                                <div id="audio-output-actions"
+                                    style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
+                                    <a id="audio-download-btn" href="#" class="action-btn"
+                                        style="width: auto; padding: 0.8rem 1.5rem;">
+                                        <i class="fa-solid fa-download"></i> Download Audio
+                                    </a>
+                                    <button id="audio-share-btn" onclick="openShareModal('audio')"
+                                        class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
+                                        <i class="fa-solid fa-share-nodes"></i> Share
+                                    </button>
+                                    <button id="audio-native-share-btn" onclick="shareAudioNative()" class="action-btn"
+                                        style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                        <i class="fa-solid fa-share"></i> Direct
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video Output Display -->
+                        <div id="video-output-display" class="glass-card"
+                            style="display: none; margin-top: 2rem; border-color: var(--primary);">
+                            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                                <i class="fa-solid fa-file-video"></i> Video Steganography Output
+                            </h3>
+                            <div class="video-player-container"
+                                style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 20px; text-align: center;">
+                                <video id="stego-video-player" controls
+                                    style="width: 100%; border-radius: 12px; border: 1px solid var(--border); max-height: 400px; background: #000;"></video>
+                                <div id="video-output-actions"
+                                    style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
+                                    <a id="video-download-btn" href="#" class="action-btn"
+                                        style="width: auto; padding: 0.8rem 1.5rem;">
+                                        <i class="fa-solid fa-download"></i> Download Video
+                                    </a>
+                                    <button id="video-share-btn" onclick="openShareModal('video')"
+                                        class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
+                                        <i class="fa-solid fa-share-nodes"></i> Share
+                                    </button>
+                                    <button id="video-native-share-btn" onclick="shareVideoNative()" class="action-btn"
+                                        style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                        <i class="fa-solid fa-share"></i> Direct
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Image Comparison Display -->
                         <div id="image-comparison-display" class="image-comparison-container" style="display: none;">
                             <div class="comparison-panels">
@@ -258,8 +332,7 @@
                                     style="width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
                                     <i class="fa-solid fa-share-nodes"></i> Share
                                 </button>
-                                <button id="text-native-share-btn" onclick="shareTextNative()"
-                                    class="action-btn"
+                                <button id="text-native-share-btn" onclick="shareTextNative()" class="action-btn"
                                     style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
                                     <i class="fa-solid fa-share"></i> Direct
                                 </button>
@@ -342,6 +415,11 @@
                                     style="width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary); display: none;">
                                     <i class="fa-solid fa-share-nodes"></i> Share
                                 </button>
+                                <button id="extract-native-share-btn" onclick="shareExtractionNative()"
+                                    class="action-btn"
+                                    style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                    <i class="fa-solid fa-share"></i> Direct
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -364,14 +442,14 @@
                             <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Multi-Layer Encryption Sequence</h2>
                             <form id="multilayer-hide-form">
                                 <div class="data-type-switch" style="margin-bottom: 1rem;">
-                                <label class="switch-label active" onclick="setMLDataType('text')">
-                                    <i class="fa-solid fa-font"></i> Secret Text
-                                </label>
-                                <label class="switch-label" onclick="setMLDataType('media')">
-                                    <i class="fa-solid fa-file"></i> Secret File
-                                </label>
-                            </div>
-    
+                                    <label class="switch-label active" onclick="setMLDataType('text')">
+                                        <i class="fa-solid fa-font"></i> Secret Text
+                                    </label>
+                                    <label class="switch-label" onclick="setMLDataType('media')">
+                                        <i class="fa-solid fa-file"></i> Secret File
+                                    </label>
+                                </div>
+
                                 <div class="input-group" id="ml-text-input-group">
                                     <label>Secret Message</label>
                                     <textarea id="ml-secret-text" name="secret_text"
@@ -393,7 +471,8 @@
                                     <!-- Layer 1 -->
                                     <div
                                         style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
-                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 1 (Inner)</h3>
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 1 (Inner)
+                                        </h3>
                                         <div class="input-group">
                                             <label>Type</label>
                                             <select id="ml-layer1-type" name="layer1_type"
@@ -421,14 +500,15 @@
                                             <img id="ml-l1-preview" src=""
                                                 style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
                                         </div>
-                                        <textarea id="ml-layer1-text" name="layer1_text" placeholder="Enter text carrier"
-                                            style="display: none;"></textarea>
+                                        <textarea id="ml-layer1-text" name="layer1_text"
+                                            placeholder="Enter text carrier" style="display: none;"></textarea>
                                     </div>
-    
+
                                     <!-- Layer 2 -->
                                     <div
                                         style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
-                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 2 (Outer)</h3>
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 2 (Outer)
+                                        </h3>
                                         <div class="input-group">
                                             <label>Type</label>
                                             <select id="ml-layer2-type" name="layer2_type"
@@ -456,101 +536,175 @@
                                             <img id="ml-l2-preview" src=""
                                                 style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
                                         </div>
-                                        <textarea id="ml-layer2-text" name="layer2_text" placeholder="Enter text carrier"
-                                            style="display: none;"></textarea>
+                                        <textarea id="ml-layer2-text" name="layer2_text"
+                                            placeholder="Enter text carrier" style="display: none;"></textarea>
                                     </div>
                                 </div>
-    
+
                                 <button type="submit" class="action-btn">
                                     <i class="fa-solid fa-layer-group"></i> Process Sequence
                                 </button>
                             </form>
                         </div>
+
+                        <!-- Multi-Layer Hide Results Panel -->
+                        <div id="ml-hide-results" class="glass-card"
+                            style="display: none; margin-top: 2rem; border-color: var(--primary);">
+                            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                                <i class="fa-solid fa-layer-group"></i> Multi-Layer Hide Successful
+                            </h3>
+                            <div
+                                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                                <!-- Panel 1: Secret Content -->
+                                <div style="text-align: center;">
+                                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">1.
+                                        Secret Content</p>
+                                    <div class="result-box" id="ml-hide-res-1"
+                                        style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
+                                        <!-- Will be populated by JS -->
+                                    </div>
+                                </div>
+                                <!-- Panel 2: Layer 1 Carrier -->
+                                <div style="text-align: center;">
+                                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">2.
+                                        Layer 1 Media</p>
+                                    <div class="result-box" id="ml-hide-res-2"
+                                        style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
+                                        <!-- Will be populated by JS -->
+                                    </div>
+                                </div>
+                                <!-- Panel 3: Final Layer -->
+                                <div style="text-align: center;">
+                                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">3.
+                                        Final Output</p>
+                                    <div class="result-box" id="ml-hide-res-3"
+                                        style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
+                                        <!-- Will be populated by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                                <a id="ml-hide-download-btn" href="#" class="action-btn"
+                                    style="width: auto; padding: 0.8rem 1.5rem;">
+                                    <i class="fa-solid fa-download"></i> Download Output
+                                </a>
+                                <button id="ml-hide-share-btn" onclick="openShareModal('ml-hide')"
+                                    class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
+                                    <i class="fa-solid fa-share-nodes"></i> Share
+                                </button>
+                                <button id="ml-hide-native-share-btn" onclick="shareMultiLayerHideNative()"
+                                    class="action-btn"
+                                    style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                    <i class="fa-solid fa-share"></i> Direct
+                                </button>
+                            </div>
+                        </div>
                     </div>
-    
+
                     <!-- Multi-Layer Extract Section -->
                     <div id="ml-extract-section" style="display: none;">
                         <div class="glass-card">
                             <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Multi-Layer Extraction</h2>
                             <form id="multilayer-extract-form">
                                 <div class="data-type-switch" style="margin-bottom: 1.5rem;">
-                                <label class="switch-label active" onclick="setMLExtractDataType('text')">
-                                    <i class="fa-solid fa-font"></i> Expecting Text
-                                </label>
-                                <label class="switch-label" onclick="setMLExtractDataType('media')">
-                                    <i class="fa-solid fa-file"></i> Expecting File
-                                </label>
-                            </div>
-
-                            <div class="upload-area" id="ml-stego-upload">
-                                <input type="file" id="ml-stego-file" name="stego_file" hidden>
-                                <div class="upload-content">
-                                    <i class="fa-solid fa-file-zipper"></i>
-                                    <p>Drop <strong>Multi-Layer File</strong> Here (Auto-Detect)</p>
-                                    <div class="file-info" id="ml-stego-info"></div>
+                                    <label class="switch-label active" onclick="setMLExtractDataType('text')">
+                                        <i class="fa-solid fa-font"></i> Expecting Text
+                                    </label>
+                                    <label class="switch-label" onclick="setMLExtractDataType('media')">
+                                        <i class="fa-solid fa-file"></i> Expecting File
+                                    </label>
                                 </div>
-                            </div>
 
-                            <!-- Passwords for Auto-Detect -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; margin-top: 1.5rem;">
-                                <div class="input-group">
-                                    <label>Outer Layer Password</label>
-                                    <input type="password" id="ml-auto-pass-1" name="auto_pass_1"
-                                        placeholder="Password for Layer 1">
-                                </div>
-                                <div class="input-group">
-                                    <label>Inner Layer Password</label>
-                                    <input type="password" id="ml-auto-pass-2" name="auto_pass_2"
-                                        placeholder="Password for Layer 2">
-                                </div>
-                            </div>
-
-                            <button type="submit" class="action-btn secondary">
-                                <i class="fa-solid fa-unlock"></i> Unwind Layers
-                            </button>
-                        </form>
-
-                        <!-- Multi-Layer Results Panel -->
-                        <div id="ml-results-panel" style="display: none; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
-                            <h3 style="color: var(--success); margin-bottom: 1rem; text-align: center;">Extraction Complete</h3>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                                <!-- Cover File -->
-                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
-                                    <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Cover File</h4>
-                                    <div id="ml-res-cover-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
-                                        <!-- Content injected via JS -->
+                                <div class="upload-area" id="ml-stego-upload">
+                                    <input type="file" id="ml-stego-file" name="stego_file" hidden>
+                                    <div class="upload-content">
+                                        <i class="fa-solid fa-file-zipper"></i>
+                                        <p>Drop <strong>Multi-Layer File</strong> Here (Auto-Detect)</p>
+                                        <div class="file-info" id="ml-stego-info"></div>
                                     </div>
                                 </div>
-                                <!-- Inner Layer -->
-                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
-                                    <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Inner Layer</h4>
-                                    <div id="ml-res-inner-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
-                                        <!-- Content injected via JS -->
+
+                                <!-- Passwords for Auto-Detect -->
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; margin-top: 1.5rem;">
+                                    <div class="input-group">
+                                        <label>Outer Layer Password</label>
+                                        <input type="password" id="ml-auto-pass-1" name="auto_pass_1"
+                                            placeholder="Password for Layer 1">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Inner Layer Password</label>
+                                        <input type="password" id="ml-auto-pass-2" name="auto_pass_2"
+                                            placeholder="Password for Layer 2">
                                     </div>
                                 </div>
-                                <!-- Secret Message -->
-                                <div class="glass-card" style="padding: 1rem; text-align: center; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success);">
-                                    <h4 style="font-size: 0.8rem; color: var(--success); margin-bottom: 0.5rem;">Secret Data</h4>
-                                    <div id="ml-res-secret-box" style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
-                                        <!-- Content injected via JS -->
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="ml-final-text" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-family: 'Space Mono', monospace; display: none; word-break: break-all;"></div>
-                            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; justify-content: center;">
-                                <a id="ml-download-btn" href="#" class="action-btn" style="display: none; width: auto;">
-                                    <i class="fa-solid fa-download"></i> Download Secret File
-                                </a>
-                                <button id="ml-share-btn" onclick="openShareModal('ml')" class="action-btn share-btn" style="display: none; width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
-                                    <i class="fa-solid fa-share-nodes"></i> Share
+
+                                <button type="submit" class="action-btn secondary">
+                                    <i class="fa-solid fa-unlock"></i> Unwind Layers
                                 </button>
-                                <button id="ml-native-share-btn" onclick="shareMultiLayerNative()" class="action-btn" style="display: none; width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--success-alpha-20); border: 1px solid var(--success);">
-                                    <i class="fa-solid fa-share"></i> Direct
-                                </button>
+                            </form>
+
+                            <!-- Multi-Layer Results Panel -->
+                            <div id="ml-results-panel"
+                                style="display: none; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+                                <h3 style="color: var(--success); margin-bottom: 1rem; text-align: center;">Extraction
+                                    Complete</h3>
+                                <div
+                                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                    <!-- Cover File -->
+                                    <div class="glass-card"
+                                        style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
+                                        <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                            Cover File</h4>
+                                        <div id="ml-res-cover-box"
+                                            style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                            <!-- Content injected via JS -->
+                                        </div>
+                                    </div>
+                                    <!-- Inner Layer -->
+                                    <div class="glass-card"
+                                        style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
+                                        <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                            Inner Layer</h4>
+                                        <div id="ml-res-inner-box"
+                                            style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                            <!-- Content injected via JS -->
+                                        </div>
+                                    </div>
+                                    <!-- Secret Message -->
+                                    <div class="glass-card"
+                                        style="padding: 1rem; text-align: center; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success);">
+                                        <h4 style="font-size: 0.8rem; color: var(--success); margin-bottom: 0.5rem;">
+                                            Secret Data</h4>
+                                        <div id="ml-res-secret-box"
+                                            style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
+                                            <!-- Content injected via JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="ml-final-text"
+                                    style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; font-family: 'Space Mono', monospace; display: none; word-break: break-all;">
+                                </div>
+                                <div
+                                    style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; justify-content: center;">
+                                    <a id="ml-download-btn" href="#" class="action-btn"
+                                        style="display: none; width: auto;">
+                                        <i class="fa-solid fa-download"></i> Download Secret File
+                                    </a>
+                                    <button id="ml-share-btn" onclick="openShareModal('ml')"
+                                        class="action-btn share-btn"
+                                        style="display: none; width: auto; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
+                                        <i class="fa-solid fa-share-nodes"></i> Share
+                                    </button>
+                                    <button id="ml-native-share-btn" onclick="shareMultiLayerNative()"
+                                        class="action-btn"
+                                        style="display: none; width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                        <i class="fa-solid fa-share"></i> Direct
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
                 </div>
                 <!-- HISTORY SECTION -->
                 <div id="history-section" class="section">

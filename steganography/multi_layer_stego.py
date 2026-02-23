@@ -7,12 +7,14 @@ from typing import List, Dict, Any, Tuple, Optional
 from .image_stego import ImageSteganography
 from .audio_stego import AudioSteganography
 from .video_stego import VideoSteganography
+from .text_stego import TextSteganography
 
 class MultiLayerSteganography:
     def __init__(self):
         self.image_stego = ImageSteganography()
         self.audio_stego = AudioSteganography()
         self.video_stego = VideoSteganography()
+        self.text_stego = TextSteganography()
         
     def _get_stego_module(self, media_type: str):
         if media_type == 'image':
@@ -21,6 +23,8 @@ class MultiLayerSteganography:
             return self.audio_stego
         elif media_type == 'video':
             return self.video_stego
+        elif media_type == 'text':
+            return self.text_stego
         else:
             raise ValueError(f"Unsupported media type: {media_type}")
 
@@ -28,11 +32,11 @@ class MultiLayerSteganography:
         """
         Hide data through multiple layers.
         Each layer dict should contain:
-        - type: 'image', 'audio', or 'video'
-        - source: path to cover media
-        - (only for first layer) secret: text to hide OR secret_file: path to file
+        - type: 'image', 'audio', 'video', or 'text'
+        - source: path to cover media (or cover text for text type)
+        - (only for first layer) text: text to hide OR secret_file: path to file
         - password: optional password
-        - output: path where stego file will be saved
+        - output: path where stego file will be saved (or output text for text type)
         """
         try:
             current_secret_path = None
@@ -54,59 +58,92 @@ class MultiLayerSteganography:
                 stego = self._get_stego_module(layer['type'])
                 
                 if i == 0:
-                    # First layer: Text/File in Media
-                    if 'text' in layer:
-                        success, msg = stego.hide_text(
-                            layer['source'], 
-                            layer['text'], 
-                            layer['output'], 
-                            layer.get('password'),
-                            callback=sub_callback
-                        )
-                    elif 'secret_file' in layer:
-                        # Assuming image_stego has hide_file
-                        if hasattr(stego, 'hide_file'):
-                            success, msg = stego.hide_file(
-                                layer['source'],
-                                layer['secret_file'],
-                                layer['output'],
+                    # First layer: Text/File in Media or Text
+                    if layer['type'] == 'text':
+                        # Text steganography: hide_text(cover_text, secret_text, password)
+                        # Text stego returns the stego text, not a file
+                        if 'text' in layer:
+                            # Use the source as cover text, text as secret
+                            success, msg = stego.hide_text(
+                                layer['source'],  # cover text
+                                layer['text'],    # secret text
+                                layer.get('password')
+                            )
+                            if success:
+                                # For text layers, output is the stego text
+                                # Store it in the layer dict for next layer
+                                layer['stego_text'] = msg
+                                msg = f"Text hidden in text: {len(msg)} chars"
+                        else:
+                            return False, "First text layer must contain 'text' to hide."
+                    else:
+                        # Media steganography (image, audio, video)
+                        if 'text' in layer:
+                            success, msg = stego.hide_text(
+                                layer['source'], 
+                                layer['text'], 
+                                layer['output'], 
                                 layer.get('password'),
                                 callback=sub_callback
                             )
+                        elif 'secret_file' in layer:
+                            if hasattr(stego, 'hide_file'):
+                                success, msg = stego.hide_file(
+                                    layer['source'],
+                                    layer['secret_file'],
+                                    layer['output'],
+                                    layer.get('password'),
+                                    callback=sub_callback
+                                )
+                            else:
+                                return False, f"Media type {layer['type']} does not support file hiding in the first layer."
                         else:
-                            return False, f"Media type {layer['type']} does not support file hiding in the first layer."
-                    else:
-                        return False, "First layer must contain 'text' or 'secret_file'."
+                            return False, "First layer must contain 'text' or 'secret_file'."
                 else:
                     # Subsequent layers: Previous output in current source
-                    # We need a 'hide_media' style call or 'hide_file'
-                    # For images in videos, we have hide_video(cover, secret) or we use hide_file
-                    
-                    # Logic choice: If it's image in image, use hide_image. If it's image in video, use hide_video?
-                    # Actually, better to use hide_file if possible as it's more generic, 
-                    # but hide_image/hide_video are specialized.
-                    
                     prev_out = layers[i-1]['output']
+                    prev_stego_text = layers[i-1].get('stego_text')
                     
-                    # For multi-layer, we MUST use lossless hiding to preserve the inner layer's data.
-                    # hide_image/hide_video use 4MSB+4MSB which is lossy for the secret media.
-                    # We use hide_file which is lossless LSB.
-                    if hasattr(stego, 'hide_file'):
-                        success, msg = stego.hide_file(layer['source'], prev_out, layer['output'], layer.get('password'), callback=sub_callback)
-                    else:
-                        # Fallback to specialized if hide_file not available (should not happen now as we added them)
-                        if layer['type'] == 'image' and prev_out.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-                            success, msg = stego.hide_image(layer['source'], prev_out, layer['output'], callback=sub_callback)
-                        elif layer['type'] == 'video' and prev_out.lower().endswith(('.mp4', '.avi', '.mkv')):
-                            success, msg = stego.hide_video(layer['source'], prev_out, layer['output'], callback=sub_callback)
+                    if layer['type'] == 'text':
+                        # Text layer: hide previous output (as text) in current cover text
+                        if prev_stego_text:
+                            # Previous layer produced text, use it as secret
+                            success, msg = stego.hide_text(
+                                layer['source'],  # cover text
+                                prev_stego_text,  # secret text (previous stego text)
+                                layer.get('password')
+                            )
+                            if success:
+                                layer['stego_text'] = msg
+                                msg = f"Text hidden in text layer {i+1}"
                         else:
-                            return False, f"Layer {i+1} ({layer['type']}) does not support generic file hiding."
+                            return False, f"Layer {i+1} is text but previous layer did not produce text output."
+                    else:
+                        # Media layer: hide previous output file in current cover media
+                        # For multi-layer, we MUST use lossless hiding to preserve the inner layer's data.
+                        # hide_image/hide_video use 4MSB+4MSB which is lossy for the secret media.
+                        # We use hide_file which is lossless LSB.
+                        if hasattr(stego, 'hide_file'):
+                            success, msg = stego.hide_file(layer['source'], prev_out, layer['output'], layer.get('password'), callback=sub_callback)
+                        else:
+                            # Fallback to specialized if hide_file not available
+                            if layer['type'] == 'image' and prev_out.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                                success, msg = stego.hide_image(layer['source'], prev_out, layer['output'], callback=sub_callback)
+                            elif layer['type'] == 'video' and prev_out.lower().endswith(('.mp4', '.avi', '.mkv')):
+                                success, msg = stego.hide_video(layer['source'], prev_out, layer['output'], callback=sub_callback)
+                            else:
+                                return False, f"Layer {i+1} ({layer['type']}) does not support generic file hiding."
 
                 if not success:
                     return False, f"Error at layer {i+1}: {msg}"
 
             if progress_callback:
                 progress_callback(100)
+            
+            # Handle final output for text layers
+            final_layer = layers[-1]
+            if final_layer['type'] == 'text' and final_layer.get('stego_text'):
+                return True, f"Successfully processed {total_layers} layers. Final output (text): {final_layer['stego_text'][:100]}..."
             return True, f"Successfully processed {total_layers} layers. Final output: {layers[-1]['output']}"
 
         except Exception as e:

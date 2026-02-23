@@ -87,13 +87,26 @@ function setMediaType(type) {
         if (opTabs) opTabs.style.display = 'flex';
     }
 
-    // Hide data type switcher for text module
-    const dataSwitchers = document.querySelectorAll('.data-type-switch');
-    dataSwitchers.forEach(switcher => {
-        switcher.style.display = (isText || isMulti) ? 'none' : 'flex';
-    });
+    updateSwitchers(type, state.operation);
 
     updateUI();
+}
+
+function updateSwitchers(mediaType, operation) {
+    const dataSwitchers = document.querySelectorAll('.data-type-switch');
+    dataSwitchers.forEach(switcher => {
+        const isExtractCard = switcher.closest('#extract-section') !== null;
+        const isText = mediaType === 'text';
+        const isMulti = mediaType === 'multilayer';
+
+        if (isExtractCard) {
+            // Extraction: Always hide for all types (now automatic like Multi-Layer)
+            switcher.style.display = 'none';
+        } else {
+            // Hide: hide for text/multi, show for others
+            switcher.style.display = (isText || isMulti) ? 'none' : 'flex';
+        }
+    });
 }
 
 function setOperation(op) {
@@ -111,6 +124,8 @@ function setOperation(op) {
         document.getElementById('hide-section').style.display = op === 'hide' ? 'block' : 'none';
         document.getElementById('extract-section').style.display = op === 'extract' ? 'block' : 'none';
     }
+
+    updateSwitchers(state.mediaType, op);
 }
 
 function setDataType(type) {
@@ -319,6 +334,17 @@ function initLayerPreviews() {
 // --- Helper Functions for Output Display ---
 
 function displayHideOutput(result, mediaType) {
+    // Hide all output areas first
+    const stegoOutputArea = document.getElementById('stego-output-area');
+    const imageComparisonArea = document.getElementById('image-comparison-display');
+    const audioDisplayArea = document.getElementById('audio-output-display');
+    const videoDisplayArea = document.getElementById('video-output-display');
+
+    if (stegoOutputArea) stegoOutputArea.style.display = 'none';
+    if (imageComparisonArea) imageComparisonArea.style.display = 'none';
+    if (audioDisplayArea) audioDisplayArea.style.display = 'none';
+    if (videoDisplayArea) videoDisplayArea.style.display = 'none';
+
     // Show image comparison for image media type
     if (mediaType === 'image' && result.download_url) {
         const sourceFileInput = document.getElementById('source-file');
@@ -345,22 +371,90 @@ function displayHideOutput(result, mediaType) {
 
         // Show image comparison with cover and hidden images
         showImageComparison(coverImageUrl, hiddenImageUrl, result);
+    }
+    else if (mediaType === 'audio' && result.download_url) {
+        if (audioDisplayArea) {
+            audioDisplayArea.style.display = 'block';
+            const audioPlayer = document.getElementById('stego-audio-player');
+            const downloadBtn = document.getElementById('audio-download-btn');
 
-        // Hide text output area for images
-        const stegoOutput = document.getElementById('stego-output-area');
-        if (stegoOutput) {
-            stegoOutput.style.display = 'none';
+            if (audioPlayer) {
+                audioPlayer.src = result.download_url;
+                audioPlayer.load();
+            }
+
+            if (downloadBtn) {
+                downloadBtn.href = result.download_url;
+                downloadBtn.download = result.download_url.split('/').pop();
+            }
+
+            // Update Audio Specific Share Buttons
+            const audioShareBtn = document.getElementById('audio-share-btn');
+            if (audioShareBtn) {
+                audioShareBtn.dataset.url = result.download_url ? (window.location.origin + result.download_url) : '';
+                audioShareBtn.dataset.text = 'Secure Audio via SILENT';
+            }
+
+            const audioNativeBtn = document.getElementById('audio-native-share-btn');
+            if (audioNativeBtn) {
+                if (navigator.share) {
+                    audioNativeBtn.style.display = 'inline-flex';
+                    audioNativeBtn.dataset.url = result.download_url;
+                    audioNativeBtn.dataset.filename = result.download_url.split('/').pop();
+                } else {
+                    audioNativeBtn.style.display = 'none';
+                }
+            }
+
+            audioDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    } else {
+    }
+    else if (mediaType === 'video' && result.download_url) {
+        if (videoDisplayArea) {
+            videoDisplayArea.style.display = 'block';
+            const videoPlayer = document.getElementById('stego-video-player');
+            const downloadBtn = document.getElementById('video-download-btn');
+
+            if (videoPlayer) {
+                videoPlayer.src = result.download_url;
+                videoPlayer.load();
+            }
+
+            if (downloadBtn) {
+                downloadBtn.href = result.download_url;
+                downloadBtn.download = result.download_url.split('/').pop();
+            }
+
+            // Update Video Specific Share Buttons
+            const videoShareBtn = document.getElementById('video-share-btn');
+            if (videoShareBtn) {
+                videoShareBtn.dataset.url = result.download_url ? (window.location.origin + result.download_url) : '';
+                videoShareBtn.dataset.text = 'Secure Video via SILENT';
+            }
+
+            const videoNativeBtn = document.getElementById('video-native-share-btn');
+            if (videoNativeBtn) {
+                if (navigator.share) {
+                    videoNativeBtn.style.display = 'inline-flex';
+                    videoNativeBtn.dataset.url = result.download_url;
+                    videoNativeBtn.dataset.filename = result.download_url.split('/').pop();
+                } else {
+                    videoNativeBtn.style.display = 'none';
+                }
+            }
+
+            videoDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    else {
         // Show text output for non-image types
-        const stegoOutput = document.getElementById('stego-output-area');
-        if (stegoOutput) {
-            stegoOutput.style.display = 'block';
+        if (stegoOutputArea) {
+            stegoOutputArea.style.display = 'block';
             const outputContent = document.getElementById('stego-text-output');
             if (outputContent) {
                 outputContent.textContent = result.data || result.message;
             }
-            stegoOutput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            stegoOutputArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         hideImageComparison();
@@ -415,6 +509,19 @@ function displayExtractOutput(result) {
             shareBtn.dataset.text = result.data || '';
         }
 
+        const nativeBtn = document.getElementById('extract-native-share-btn');
+        if (nativeBtn) {
+            if (navigator.share) {
+                nativeBtn.style.display = 'inline-flex';
+                nativeBtn.dataset.url = result.download_url ? (window.location.origin + result.download_url) : '';
+                nativeBtn.dataset.text = result.data || '';
+                nativeBtn.dataset.isFile = result.is_file || false;
+                nativeBtn.dataset.filename = result.download_url ? result.download_url.split('/').pop() : 'extracted_data';
+            } else {
+                nativeBtn.style.display = 'none';
+            }
+        }
+
         resArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
@@ -458,12 +565,12 @@ async function submitMultiLayer(op) {
         const result = await response.json();
 
         if (result.success) {
-
             showToast(result.message);
 
             // Display output in interface
             if (op === 'hide') {
                 displayHideOutput(result, 'Multi-Layer');
+                displayMultiLayerHideResults(result);
             } else if (op === 'extract') {
                 displayExtractOutput(result);
                 displayMultiLayerResults(result);
@@ -494,6 +601,90 @@ async function submitMultiLayer(op) {
     }
 }
 
+function displayMultiLayerHideResults(result) {
+    const panel = document.getElementById('ml-hide-results');
+    if (!panel) return;
+
+    panel.style.display = 'block';
+
+    // Smooth scroll to results
+    setTimeout(() => {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+    // 1. Secret Content (Layer 0)
+    const res1 = document.getElementById('ml-hide-res-1');
+    if (res1) {
+        if (state.mlDataType === 'text') {
+            const text = document.getElementById('ml-secret-text').value;
+            res1.innerHTML = `<div style="font-size:0.75rem; color:var(--text); padding:8px; text-align:left; line-height:1.2; width:100%; height:100%; overflow:hidden; word-break:break-all;">${text.substring(0, 150)}${text.length > 150 ? '...' : ''}</div>`;
+        } else {
+            res1.innerHTML = `<i class="fa-solid fa-file-shield" style="font-size:2.5rem; color:var(--primary);"></i>`;
+        }
+    }
+
+    // 2. Layer 1 Media (Input Carrier)
+    const res2 = document.getElementById('ml-hide-res-2');
+    if (res2) {
+        const l1Type = document.getElementById('ml-layer1-type').value;
+        const l1Preview = document.getElementById('ml-l1-preview');
+
+        if (l1Type === 'image' && l1Preview && l1Preview.src) {
+            res2.innerHTML = `<img src="${l1Preview.src}" style="max-height:100%; max-width:100%; object-fit:contain; border-radius:8px;">`;
+        } else if (l1Type === 'audio') {
+            res2.innerHTML = `<i class="fa-solid fa-music" style="font-size:2.5rem; color:var(--primary-light);"></i>`;
+        } else if (l1Type === 'video') {
+            res2.innerHTML = `<i class="fa-solid fa-film" style="font-size:2.5rem; color:var(--primary-light);"></i>`;
+        } else {
+            res2.innerHTML = `<i class="fa-solid fa-quote-left" style="font-size:2.5rem; color:var(--primary-light);"></i>`;
+        }
+    }
+
+    // 3. Final Output (Layer 2)
+    const res3 = document.getElementById('ml-hide-res-3');
+    if (res3 && result.download_url) {
+        const l2Type = document.getElementById('ml-layer2-type').value;
+        if (l2Type === 'image') {
+            res3.innerHTML = `<img src="${result.download_url}" style="max-height:100%; max-width:100%; object-fit:contain; border-radius:8px;">`;
+        } else if (l2Type === 'audio') {
+            res3.innerHTML = `<i class="fa-solid fa-file-audio" style="font-size:2.5rem; color:var(--success);"></i>`;
+        } else if (l2Type === 'video') {
+            res3.innerHTML = `<i class="fa-solid fa-file-video" style="font-size:2.5rem; color:var(--success);"></i>`;
+        } else {
+            res3.innerHTML = `<i class="fa-solid fa-file-lines" style="font-size:2.5rem; color:var(--success);"></i>`;
+        }
+    }
+
+    // Update actions
+    const dlBtn = document.getElementById('ml-hide-download-btn');
+    if (dlBtn && result.download_url) {
+        dlBtn.href = result.download_url;
+        dlBtn.style.display = 'inline-flex';
+        dlBtn.download = result.filename || 'multilayer_stego';
+    }
+
+    const shareBtn = document.getElementById('ml-hide-share-btn');
+    if (shareBtn) {
+        shareBtn.dataset.url = result.download_url ? (window.location.origin + result.download_url) : '';
+        shareBtn.dataset.text = 'Secure Multi-Layer Data via SILENT';
+    }
+
+    const nativeBtn = document.getElementById('ml-hide-native-share-btn');
+    if (nativeBtn) {
+        if (navigator.share) {
+            nativeBtn.style.display = 'inline-flex';
+            nativeBtn.dataset.url = result.download_url ? (window.location.origin + result.download_url) : '';
+            nativeBtn.dataset.filename = result.filename || 'multilayer_output.png';
+            nativeBtn.dataset.isFile = 'true';
+        } else {
+            nativeBtn.style.display = 'none';
+        }
+    }
+}
+
+async function shareMultiLayerHideNative() {
+    return shareMultiLayerNative('ml-hide');
+}
 function displayMultiLayerResults(result) {
     const panel = document.getElementById('ml-results-panel');
     if (!panel) return;
@@ -579,14 +770,14 @@ function displayMultiLayerResults(result) {
     }
 }
 
-async function shareMultiLayerNative() {
-    const btn = document.getElementById('ml-native-share-btn');
+async function shareMultiLayerNative(prefix = 'ml') {
+    const btn = document.getElementById(`${prefix}-native-share-btn`);
     if (!btn) return;
 
     const isFile = btn.dataset.isFile === 'true';
     const url = btn.dataset.url;
     const text = btn.dataset.text;
-    const filename = btn.dataset.filename;
+    const filename = btn.dataset.filename || 'secure_data';
 
     try {
         if (isFile && url) {
@@ -598,22 +789,29 @@ async function shareMultiLayerNative() {
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
-                    title: 'Secure Multi-Layer File',
-                    text: text
+                    title: 'Secure Multi-Layer Sequence',
+                    text: text || 'Secure Data via SILENT'
                 });
             } else {
-                showToast('Direct sharing not supported for this file', true);
+                // Fallback to URL sharing if file sharing not supported
+                await navigator.share({
+                    title: 'Secure Multi-Layer Sequence',
+                    text: text || 'Secure Data via SILENT',
+                    url: url
+                });
             }
         } else {
             await navigator.share({
-                title: 'Secure Multi-Layer Data',
-                text: text,
+                title: 'Secure Multi-Layer Sequence',
+                text: text || 'Secure Data via SILENT',
                 url: (url && url !== window.location.href) ? url : undefined
             });
         }
     } catch (e) {
         console.error(e);
-        showToast('Share failed: ' + e.message, true);
+        if (e.name !== 'AbortError') {
+            showToast('Share failed: ' + e.message, true);
+        }
     } finally {
         toggleLoading(false);
     }
@@ -919,6 +1117,109 @@ async function shareTextNative() {
         }
     } catch (e) {
         console.error(e);
+    }
+}
+
+async function shareAudioNative() {
+    const btn = document.getElementById('audio-native-share-btn');
+    if (!btn || !btn.dataset.url) return;
+
+    try {
+        toggleLoading(true);
+        const response = await fetch(btn.dataset.url);
+        const blob = await response.blob();
+        const file = new File([blob], btn.dataset.filename || 'audio.wav', { type: blob.type });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Secure Audio',
+                text: 'Secure Audio via SILENT'
+            });
+        } else {
+            // Fallback to basic share
+            await navigator.share({
+                title: 'Secure Audio',
+                url: window.location.origin + btn.dataset.url
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Share failed: ' + e.message, true);
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+async function shareVideoNative() {
+    const btn = document.getElementById('video-native-share-btn');
+    if (!btn || !btn.dataset.url) return;
+
+    try {
+        toggleLoading(true);
+        const response = await fetch(btn.dataset.url);
+        const blob = await response.blob();
+        const file = new File([blob], btn.dataset.filename || 'video.mp4', { type: blob.type });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Secure Video',
+                text: 'Secure Video via SILENT'
+            });
+        } else {
+            // Fallback to basic share
+            await navigator.share({
+                title: 'Secure Video',
+                url: window.location.origin + btn.dataset.url
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Share failed: ' + e.message, true);
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+async function shareExtractionNative() {
+    const btn = document.getElementById('extract-native-share-btn');
+    if (!btn) return;
+
+    const isFile = btn.dataset.isFile === 'true';
+    const text = btn.dataset.text;
+    const url = btn.dataset.url;
+
+    try {
+        if (isFile && url) {
+            toggleLoading(true);
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const file = new File([blob], btn.dataset.filename || 'extracted_file', { type: blob.type });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Extracted File',
+                    text: 'Extracted via SILENT'
+                });
+            } else {
+                await navigator.share({
+                    title: 'Extracted File',
+                    url: window.location.origin + url
+                });
+            }
+        } else {
+            await navigator.share({
+                title: 'Extracted Message',
+                text: text || 'Message extracted via SILENT'
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Share failed', true);
+    } finally {
+        if (isFile) toggleLoading(false);
     }
 }
 

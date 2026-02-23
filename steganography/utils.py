@@ -12,8 +12,13 @@ from typing import Tuple
 
 
 def text_to_binary(text: str) -> str:
-    """Convert text to binary string."""
-    return ''.join(format(ord(char), '08b') for char in text)
+    """Convert text to binary string efficiently."""
+    try:
+        import numpy as np
+        # Convert to bytes, then to bit array, then join to string
+        return "".join(map(str, np.unpackbits(np.frombuffer(text.encode('utf-8'), dtype=np.uint8))))
+    except:
+        return ''.join(format(ord(char), '08b') for char in text)
 
 def bytes_to_binary(data: bytes) -> str:
     """Convert bytes to binary string."""

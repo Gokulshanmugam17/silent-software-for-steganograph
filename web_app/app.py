@@ -289,38 +289,42 @@ def process():
                     return jsonify({'success': True, 'message': 'Text extracted successfully', 'data': result})
                 else:
                     return jsonify({'success': False, 'message': result})
-                    
-            elif data_type == 'text':
-                # Pass decopy_on_fail to extract_text
-                success, result = stego.extract_text(source_path, password, decoy_on_fail=decoy_on_fail)
-                
-                if success:
-                    add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Message Extracted')
-                    return jsonify({'success': True, 'message': 'Text extracted successfully', 'data': result})
-                else:
-                    return jsonify({'success': False, 'message': result})
             
-            elif data_type == 'media':
-                extracted_filename = f"extracted_{source_file.filename}"
-                output_path = os.path.join(app.config['UPLOAD_FOLDER'], extracted_filename)
-                
-                if media_type == 'image':
-                    is_file_mode = request.form.get('is_file_mode') == 'true'
-                    if is_file_mode:
-                        success, msg = stego.extract_file(source_path, app.config['UPLOAD_FOLDER'], password)
-                        # Extract real output path from message
-                        if success:
-                            import re
-                            match = re.search(r"Extracted to (.+)$", msg)
-                            if match:
-                                output_path = match.group(1)
-                    else:
-                        success, msg = stego.extract_image(source_path, output_path)
+            # AUTOMATIC DETECTION FOR ALL MEDIA TYPES (Smart Extraction)
+            # We try in order: 1. LSB File, 2. LSB Text, 3. Specialized Media
+            
+            extracted_filename = f"extracted_{source_file.filename}"
+            output_path = os.path.join(app.config['UPLOAD_FOLDER'], extracted_filename)
+            
+            # --- PHASE 1: Try Lossless LSB File Extraction ---
+            success, msg = stego.extract_file(source_path, app.config['UPLOAD_FOLDER'], password)
+            if success:
+                import re
+                match = re.search(r"Extracted to (.+)$", msg)
+                if match:
+                    output_path = match.group(1)
+                    add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'File Extracted')
+                    return jsonify({'success': True, 'message': 'File detected and extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}'})
 
-                elif media_type == 'audio':
-                    success, msg = stego.extract_audio(source_path, output_path)
-                elif media_type == 'video':
-                    success, msg = stego.extract_video(source_path, output_path)
+            # --- PHASE 2: Try Lossless LSB Text Extraction ---
+            success, result = stego.extract_text(source_path, password, decoy_on_fail=decoy_on_fail)
+            if success:
+                add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Message Extracted')
+                return jsonify({'success': True, 'message': 'Text detected and extracted successfully', 'data': result})
+            
+            # --- PHASE 3: Try Specialized Media Extraction (Audio/Video/Image Merge) ---
+            if media_type == 'image':
+                success, msg = stego.extract_image(source_path, output_path)
+            elif media_type == 'audio':
+                success, msg = stego.extract_audio(source_path, output_path)
+            elif media_type == 'video':
+                success, msg = stego.extract_video(source_path, output_path)
+            
+            if success:
+                add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Media Extracted')
+                return jsonify({'success': True, 'message': 'Hidden media extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}'})
+            else:
+                return jsonify({'success': False, 'message': 'Smart Extract failed: No hidden data detected or incorrect password.'})
 
         if success:
             add_to_history(session.get('username'), operation.capitalize(), media_type.capitalize(), 'Success', msg if isinstance(msg, str) and len(msg) < 50 else 'File Processed')
@@ -432,19 +436,35 @@ def multilayer():
             ]
             
             # Process
+            print(f"DEBUG: Starting multi-layer hide with {len(layers)} layers")
             success, msg = multi_layer_stego.hide_layers(layers)
+            print(f"DEBUG: Multi-layer hide success: {success}, msg: {msg}")
             
-            # Cleanup temp
-            if os.path.exists(temp_output):
+            # Check if final layer is text type
+            final_layer = layers[-1]
+            is_text_output = final_layer['type'] == 'text'
+            
+            # Cleanup temp only for non-text layers
+            if not is_text_output and os.path.exists(temp_output):
                 os.remove(temp_output)
             
             if success:
                 add_to_history(session.get('username'), 'Hide', 'Multi-Layer', 'Success', 'Layered Multi-Media')
-                return jsonify({
-                    'success': True,
-                    'message': msg,
-                    'download_url': f'/download/{os.path.basename(final_output)}'
-                })
+                
+                if is_text_output:
+                    stego_text = final_layer.get('stego_text', msg)
+                    return jsonify({
+                        'success': True,
+                        'message': msg,
+                        'data': stego_text,
+                        'is_file': False
+                    })
+                else:
+                    return jsonify({
+                        'success': True,
+                        'message': msg,
+                        'download_url': f'/download/{os.path.basename(final_output)}'
+                    })
             else:
                 return jsonify({'success': False, 'message': msg})
         

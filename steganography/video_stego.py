@@ -44,40 +44,46 @@ class VideoSteganography:
 
             if password:
                 text = encrypt_message(text, password)
-            binary_text = text_to_binary(text) + self.delimiter
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            # Use FFV1 for lossless video encoding to protect steganographic data
             fourcc = cv2.VideoWriter_fourcc(*'FFV1')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
             if not out.isOpened():
-                # Fallback to a safer but perhaps lossy codec if FFV1 is missing, 
-                # though FFV1 is standard in most FFmpeg builds.
                 fourcc = cv2.VideoWriter_fourcc(*'MJPG')
                 out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+            text_bytes = text.encode('utf-8')
+            text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
+            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            binary_array = np.concatenate([text_bits, del_bits])
+            
+            total_binary = len(binary_array)
             binary_index = 0
-            total_binary = len(binary_text)
             frame_num = 0
+            
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
+                
                 if callback:
                     callback(int((frame_num / frame_count) * 100))
+                
                 if binary_index < total_binary:
-                    flat = frame.flatten()
-                    for i in range(len(flat)):
-                        if binary_index >= total_binary:
-                            break
-                        flat[i] = (flat[i] & 0xFE) | int(binary_text[binary_index])
-                        binary_index += 1
-                    frame = flat.reshape(frame.shape)
+                    flat = frame.ravel()
+                    remaining = total_binary - binary_index
+                    to_hide = min(remaining, len(flat))
+                    flat[:to_hide] = (flat[:to_hide] & 0xFE) | binary_array[binary_index : binary_index + to_hide]
+                    binary_index += to_hide
+                
                 out.write(frame)
                 frame_num += 1
+                
             cap.release()
             out.release()
+            
             if callback:
                 callback(100)
             return True, f"Text hidden successfully in {output_path}"
@@ -91,34 +97,41 @@ class VideoSteganography:
             if not cap.isOpened():
                 return False, "Could not open video file"
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            binary_bits = []
+            all_frames_lsbs = []
             found = False
             frame_num = 0
-            del_len = len(self.delimiter)
+            del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
+            del_bytes = del_arr.tobytes()
             
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 if callback:
-                    callback(int((frame_num / frame_count) * 50))
+                    callback(int((frame_num / frame_count) * 45))
                 
-                flat_frame = frame.flatten()
-                for pixel in flat_frame:
-                    binary_bits.append(str(pixel & 1))
-                    
-                    # Check for delimiter only at byte boundaries for efficiency
-                    if len(binary_bits) >= del_len and len(binary_bits) % 8 == 0:
-                        if "".join(binary_bits[-del_len:]) == self.delimiter:
-                            binary_data = "".join(binary_bits[:-del_len])
-                            found = True
-                            break
-                if found:
-                    break
+                lsbs = (frame.ravel() & 1).astype(np.uint8)
+                all_frames_lsbs.append(lsbs)
+                
+                if len(all_frames_lsbs) % 10 == 0:
+                    recent = np.concatenate(all_frames_lsbs[-12:])
+                    if recent.tobytes().find(del_bytes) != -1:
+                        found = True
+                        break
                 frame_num += 1
             cap.release()
+            
             if not found:
-                return False, "No hidden message found."
+                if not all_frames_lsbs: return False, "No frames processed."
+                full_lsbs = np.concatenate(all_frames_lsbs)
+                del_idx = full_lsbs.tobytes().find(del_bytes)
+                if del_idx == -1: return False, "No hidden message found."
+            else:
+                full_lsbs = np.concatenate(all_frames_lsbs)
+                del_idx = full_lsbs.tobytes().find(del_bytes)
+            
+            binary_data = "".join(map(str, full_lsbs[:del_idx]))
+            
             if callback:
                 callback(75)
             text = binary_to_text(binary_data)
@@ -127,26 +140,19 @@ class VideoSteganography:
                 try:
                     text = decrypt_message(text, password)
                 except Exception as e:
-                    # Security Features Trigger
                     from .utils import generate_decoy_message, wipe_file_data
-                    
                     if wipe_on_fail:
                         wipe_file_data(video_path)
                         return False, "Security Triggered: Data has been wiped."
-                    
                     if decoy_on_fail:
                         return True, generate_decoy_message()
-                        
                     return False, f"Decryption failed: Incorrect Password"
 
-            # Check for Expiration
             from .utils import check_expiration, wipe_file_data
             is_expired, clean_text, has_header = check_expiration(text)
-            
             if is_expired:
                 wipe_file_data(video_path)
-                return False, "⚠️ Dead-Man Switch Triggered: Message expired and self-destructed."
-                
+                return False, "⚠️ Dead-Man Switch Triggered: Message expired."
             if has_header:
                 text = clean_text
 
@@ -158,53 +164,32 @@ class VideoSteganography:
     
     def hide_video(self, cover_path: str, secret_path: str, output_path: str,
                    callback=None) -> Tuple[bool, str]:
-        """
-        Hide a video inside another video using frame-based steganography.
-        """
         try:
             cover_cap = cv2.VideoCapture(cover_path)
             secret_cap = cv2.VideoCapture(secret_path)
+            if not cover_cap.isOpened() or not secret_cap.isOpened():
+                return False, "Could not open video files"
             
-            if not cover_cap.isOpened():
-                return False, "Could not open cover video"
-            if not secret_cap.isOpened():
-                cover_cap.release()
-                return False, "Could not open secret video"
-            
-            # Get cover properties
             width = int(cover_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cover_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cover_cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cover_cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            # Ensure output is AVI
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            # Use FFV1 for lossless video encoding
             fourcc = cv2.VideoWriter_fourcc(*'FFV1')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
-            if not out.isOpened():
-                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            
             frame_num = 0
-            
             while True:
                 ret_cover, cover_frame = cover_cap.read()
-                if not ret_cover:
-                    break
-                
+                if not ret_cover: break
                 ret_secret, secret_frame = secret_cap.read()
-                
-                if callback:
-                    callback(int((frame_num / frame_count) * 100))
+                if callback: callback(int((frame_num / frame_count) * 100))
                 
                 if ret_secret:
-                    # Resize secret frame to match cover
                     secret_frame = cv2.resize(secret_frame, (width, height))
-                    # Combine: 4 MSBs from cover, 4 MSBs from secret
                     stego_frame = (cover_frame & 0xF0) | (secret_frame >> 4)
                 else:
                     stego_frame = cover_frame
@@ -215,84 +200,61 @@ class VideoSteganography:
             cover_cap.release()
             secret_cap.release()
             out.release()
-            
-            if callback:
-                callback(100)
-            
+            if callback: callback(100)
             return True, f"Video hidden successfully in {output_path}"
-            
         except Exception as e:
             return False, f"Error hiding video: {str(e)}"
     
     def extract_video(self, stego_path: str, output_path: str,
                       callback=None) -> Tuple[bool, str]:
-        """
-        Extract hidden video from a stego video.
-        """
         try:
             cap = cv2.VideoCapture(stego_path)
-            if not cap.isOpened():
-                return False, "Could not open stego video"
-            
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            # Use FFV1 for lossless video encoding
             fourcc = cv2.VideoWriter_fourcc(*'FFV1')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
-            if not out.isOpened():
-                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            
             frame_num = 0
-            
             while True:
                 ret, frame = cap.read()
-                if not ret:
-                    break
-                
-                if callback:
-                    callback(int((frame_num / frame_count) * 100))
-                
-                # Extract 4 LSBs and shift to MSB
+                if not ret: break
+                if callback: callback(int((frame_num / frame_count) * 100))
                 extracted_frame = (frame & 0x0F) << 4
                 out.write(extracted_frame)
                 frame_num += 1
             
             cap.release()
             out.release()
-            
-            if callback:
-                callback(100)
-            
+            if callback: callback(100)
             return True, f"Video extracted successfully to {output_path}"
-            
         except Exception as e:
             return False, f"Error extracting video: {str(e)}"
 
     def hide_file(self, cover_path: str, file_path: str, output_path: str, 
                   password: Optional[str] = None, callback=None) -> Tuple[bool, str]:
-        """Hide any file inside a video file."""
         try:
-            from .utils import bytes_to_binary, encrypt_data
+            from .utils import encrypt_data
             with open(file_path, "rb") as f:
                 data = f.read()
             
             filename = os.path.basename(file_path)
-            
             if password:
                 data = encrypt_data(data, password)
             
             header = f"{{{{FILE:{filename},SIZE:{len(data)}}}}}"
-            full_binary = text_to_binary(header) + bytes_to_binary(data) + self.delimiter
+            header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
+            data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
+            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            
+            binary_array = np.concatenate([header_bits, data_bits, del_bits])
+            total_binary = len(binary_array)
+            binary_index = 0
+            frame_num = 0
             
             cap = cv2.VideoCapture(cover_path)
-            if not cap.isOpened():
-                return False, "Could not open video file"
-            
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
@@ -301,44 +263,28 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
                 
-            # Use FFV1 for lossless video encoding
             fourcc = cv2.VideoWriter_fourcc(*'FFV1')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
-            if not out.isOpened():
-                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            
-            binary_index = 0
-            total_binary = len(full_binary)
-            frame_num = 0
-            
             while True:
                 ret, frame = cap.read()
-                if not ret:
-                    break
-                
-                if callback:
-                    callback(int((frame_num / frame_count) * 100))
+                if not ret: break
+                if callback: callback(int((frame_num / frame_count) * 100))
                     
                 if binary_index < total_binary:
-                    flat = frame.flatten()
-                    for i in range(len(flat)):
-                        if binary_index >= total_binary:
-                            break
-                        flat[i] = (flat[i] & 0xFE) | int(full_binary[binary_index])
-                        binary_index += 1
-                    frame = flat.reshape(frame.shape)
+                    flat = frame.ravel()
+                    remaining = total_binary - binary_index
+                    to_hide = min(remaining, len(flat))
+                    flat[:to_hide] = (flat[:to_hide] & 0xFE) | binary_array[binary_index : binary_index + to_hide]
+                    binary_index += to_hide
                     
                 out.write(frame)
                 frame_num += 1
                 
             cap.release()
             out.release()
-            
             if binary_index < total_binary:
-                 return False, f"Video too small! Missing {total_binary - binary_index} bits."
-
+                return False, f"Video too small! Missing {total_binary - binary_index} bits."
             if callback: callback(100)
             return True, f"File hidden in {output_path}"
         except Exception as e:
@@ -346,52 +292,45 @@ class VideoSteganography:
 
     def extract_file(self, stego_path: str, output_folder: str, 
                      password: Optional[str] = None, callback=None) -> Tuple[bool, str]:
-        """Extract hidden file from stego video."""
         try:
             from .utils import binary_to_bytes, decrypt_data
             cap = cv2.VideoCapture(stego_path)
-            if not cap.isOpened():
-                return False, "Could not open video file"
-            
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            binary_bits = []
+            all_frames_lsbs = []
             found = False
             frame_num = 0
-            del_len = len(self.delimiter)
+            del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
+            del_bytes = del_arr.tobytes()
             
             while True:
                 ret, frame = cap.read()
-                if not ret:
-                    break
-                
-                if callback:
-                    callback(int((frame_num / frame_count) * 50))
-                    
-                flat_frame = frame.flatten()
-                for pixel in flat_frame:
-                    binary_bits.append(str(pixel & 1))
-                    
-                    if len(binary_bits) >= del_len and len(binary_bits) % 8 == 0:
-                        if "".join(binary_bits[-del_len:]) == self.delimiter:
-                            binary_data = "".join(binary_bits[:-del_len])
-                            found = True
-                            break
-                
-                if found:
-                    break
+                if not ret: break
+                if callback: callback(int((frame_num / frame_count) * 40))
+                lsbs = (frame.ravel() & 1).astype(np.uint8)
+                all_frames_lsbs.append(lsbs)
+                if len(all_frames_lsbs) % 10 == 0:
+                    recent = np.concatenate(all_frames_lsbs[-12:])
+                    if recent.tobytes().find(del_bytes) != -1:
+                        found = True
+                        break
                 frame_num += 1
                 
             cap.release()
-            if not found: return False, "No hidden file found."
-            
-            if callback: callback(75)
-            full_bytes = binary_to_bytes(binary_data)
+            if not found:
+                full_lsbs = np.concatenate(all_frames_lsbs)
+                del_idx = full_lsbs.tobytes().find(del_bytes)
+                if del_idx == -1: return False, "No hidden file found."
+            else:
+                full_lsbs = np.concatenate(all_frames_lsbs)
+                del_idx = full_lsbs.tobytes().find(del_bytes)
+
+            binary_data_arr = full_lsbs[:del_idx]
+            full_bytes = binary_to_bytes("".join(map(str, binary_data_arr)))
             header_end = full_bytes.find(b'}}')
             if header_end == -1: return False, "Invalid file format."
             
             header_part = full_bytes[:header_end+2]
             file_content = full_bytes[header_end+2:]
-            
             import re
             header_str = header_part.decode('utf-8', errors='ignore')
             match = re.search(r"{{FILE:(.+?),SIZE:(\d+)}}", header_str)
@@ -415,4 +354,3 @@ class VideoSteganography:
             return True, f"Extracted to {out_path}"
         except Exception as e:
             return False, f"Error: {e}"
-
