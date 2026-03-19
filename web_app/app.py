@@ -272,7 +272,7 @@ def process():
                         success, msg = stego.hide_file(source_path, secret_path, output_path, password)
 
                 elif media_type == 'audio':
-                    success, msg = stego.hide_audio(source_path, secret_path, output_path)
+                    success, msg = stego.hide_audio(source_path, secret_path, output_path, password)
                 elif media_type == 'video':
                     success, msg = stego.hide_video(source_path, secret_path, output_path)
         
@@ -291,12 +291,25 @@ def process():
                     return jsonify({'success': False, 'message': result})
             
             # AUTOMATIC DETECTION FOR ALL MEDIA TYPES (Smart Extraction)
-            # We try in order: 1. LSB File, 2. LSB Text, 3. Specialized Media
+            # For image media, we prioritize text extraction first (most common use case)
+            # Then try file extraction, then media extraction
             
             extracted_filename = f"extracted_{source_file.filename}"
             output_path = os.path.join(app.config['UPLOAD_FOLDER'], extracted_filename)
             
-            # --- PHASE 1: Try Lossless LSB File Extraction ---
+            # --- PHASE 1: Try Lossless LSB Text Extraction FIRST (most common for text-in-image) ---
+            success, result = stego.extract_text(source_path, password, decoy_on_fail=decoy_on_fail)
+            if success:
+                add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Message Extracted')
+                return jsonify({'success': True, 'message': 'Text extracted successfully', 'data': result})
+            elif "Security Triggered" in result or "Dead-Man" in result:
+                # Critical security triggers should stop everything
+                return jsonify({'success': False, 'message': result})
+            elif ("Decryption failed" in result or "Incorrect Password" in result) and media_type == 'text':
+                # Only stop if we are SURE it was supposed to be text
+                return jsonify({'success': False, 'message': result})
+            
+            # --- PHASE 2: Try Lossless LSB File Extraction ---
             success, msg = stego.extract_file(source_path, app.config['UPLOAD_FOLDER'], password)
             if success:
                 import re
@@ -304,31 +317,27 @@ def process():
                 if match:
                     output_path = match.group(1)
                     add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'File Extracted')
-                    return jsonify({'success': True, 'message': 'File detected and extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}'})
+                    return jsonify({'success': True, 'message': 'File detected and extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}', 'filename': os.path.basename(output_path), 'is_file': True})
+            elif "Incorrect Password" in msg or "Decryption failed" in msg:
+                return jsonify({'success': False, 'message': msg})
 
-            # --- PHASE 2: Try Lossless LSB Text Extraction ---
-            success, result = stego.extract_text(source_path, password, decoy_on_fail=decoy_on_fail)
-            if success:
-                add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Message Extracted')
-                return jsonify({'success': True, 'message': 'Text detected and extracted successfully', 'data': result})
-            
             # --- PHASE 3: Try Specialized Media Extraction (Audio/Video/Image Merge) ---
             if media_type == 'image':
                 success, msg = stego.extract_image(source_path, output_path)
             elif media_type == 'audio':
-                success, msg = stego.extract_audio(source_path, output_path)
+                success, msg = stego.extract_audio(source_path, output_path, password)
             elif media_type == 'video':
                 success, msg = stego.extract_video(source_path, output_path)
             
             if success:
                 add_to_history(session.get('username'), 'Extract', media_type.capitalize(), 'Success', 'Media Extracted')
-                return jsonify({'success': True, 'message': 'Hidden media extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}'})
+                return jsonify({'success': True, 'message': 'Hidden media extracted successfully', 'download_url': f'/download/{os.path.basename(output_path)}', 'filename': os.path.basename(output_path), 'is_file': True})
             else:
                 return jsonify({'success': False, 'message': 'Smart Extract failed: No hidden data detected or incorrect password.'})
 
         if success:
             add_to_history(session.get('username'), operation.capitalize(), media_type.capitalize(), 'Success', msg if isinstance(msg, str) and len(msg) < 50 else 'File Processed')
-            return jsonify({'success': True, 'message': msg, 'download_url': f'/download/{os.path.basename(output_path)}'})
+            return jsonify({'success': True, 'message': msg, 'download_url': f'/download/{os.path.basename(output_path)}', 'filename': os.path.basename(output_path), 'is_file': True})
         else:
             return jsonify({'success': False, 'message': msg})
 
@@ -530,4 +539,4 @@ def multilayer():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=8080)

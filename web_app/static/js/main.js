@@ -1,4 +1,4 @@
-﻿let state = {
+let state = {
     mediaType: 'text',
     operation: 'hide',
     dataType: 'text'
@@ -482,7 +482,117 @@ function displayHideOutput(result, mediaType) {
 }
 
 function displayExtractOutput(result) {
+    // Hide all possible output areas first to avoid double-displays
     const resArea = document.getElementById('result-area');
+    const stegoOutputArea = document.getElementById('stego-output-area');
+    const audioDisplayArea = document.getElementById('audio-output-display');
+    const videoDisplayArea = document.getElementById('video-output-display');
+
+    if (stegoOutputArea) stegoOutputArea.style.display = 'none';
+    if (audioDisplayArea) audioDisplayArea.style.display = 'none';
+    if (videoDisplayArea) videoDisplayArea.style.display = 'none';
+    hideImageComparison();
+
+    // Check if result contains text data - prioritize text over image display
+    if (result.data && typeof result.data === 'string') {
+        // This is text data - show in text area
+        if (resArea) {
+            resArea.style.display = 'block';
+            const textResult = document.getElementById('text-result');
+            if (textResult) {
+                textResult.textContent = result.data;
+            }
+
+            // Hide download button for text
+            let downloadBtn = document.getElementById('download-btn');
+            if (downloadBtn) downloadBtn.style.display = 'none';
+
+            // Update share button for text
+            const shareBtn = document.getElementById('extract-share-btn');
+            if (shareBtn) {
+                shareBtn.style.display = 'block';
+                shareBtn.dataset.url = '';
+                shareBtn.dataset.text = result.data;
+            }
+
+            const nativeBtn = document.getElementById('extract-native-share-btn');
+            if (nativeBtn) {
+                nativeBtn.style.display = navigator.share ? 'inline-flex' : 'none';
+                nativeBtn.dataset.url = '';
+                nativeBtn.dataset.text = result.data;
+            }
+
+            resArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+    }
+
+    // Check if result is a file with image extension - show in image panel
+    const isImageFile = result.download_url && result.is_file && (
+        result.download_url.match(/\.(png|jpg|jpeg|gif|bmp|webp|tiff|svg)$/i) ||
+        (result.filename && result.filename.match(/\.(png|jpg|jpeg|gif|bmp|webp|tiff|svg)$/i))
+    );
+
+    // Handle image file extraction - show in image panel
+    if (isImageFile && result.download_url) {
+        // Hide text result area
+        if (resArea) resArea.style.display = 'none';
+
+        // Build the hidden image URL
+        let hiddenImageUrl = result.download_url;
+        if (hiddenImageUrl && !hiddenImageUrl.startsWith('http') && !hiddenImageUrl.startsWith('data:')) {
+            if (hiddenImageUrl.startsWith('/')) {
+                hiddenImageUrl = window.location.origin + hiddenImageUrl;
+            } else {
+                hiddenImageUrl = window.location.origin + '/' + hiddenImageUrl;
+            }
+        }
+
+        // Show image comparison with extracted image (no cover image for extraction)
+        showImageComparison(null, hiddenImageUrl, result);
+        return;
+    }
+
+    // Check if it's audio or video for extraction playback
+    const isAudioFile = result.download_url && result.is_file && result.download_url.match(/\.(wav|mp3|ogg|flac|m4a|mpeg)$/i);
+    const isVideoFile = result.download_url && result.is_file && result.download_url.match(/\.(avi|mp4|mkv|mov|webm)$/i);
+
+    if (isAudioFile && audioDisplayArea) {
+        audioDisplayArea.style.display = 'block';
+        const player = document.getElementById('stego-audio-player');
+        if (player) { player.src = result.download_url; player.load(); }
+        const dl = document.getElementById('audio-download-btn');
+        if (dl) { dl.href = result.download_url; dl.style.display = 'inline-flex'; }
+        audioDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Also show result area msg
+        if (resArea) {
+            resArea.style.display = 'block';
+            const textResult = document.getElementById('text-result');
+            if (textResult) textResult.textContent = 'Audio extracted and ready for playback.';
+            const dlb = document.getElementById('download-btn');
+            if (dlb) dlb.style.display = 'none';
+        }
+        return;
+    }
+
+    if (isVideoFile && videoDisplayArea) {
+        videoDisplayArea.style.display = 'block';
+        const player = document.getElementById('stego-video-player');
+        if (player) { player.src = result.download_url; player.load(); }
+        const dl = document.getElementById('video-download-btn');
+        if (dl) { dl.href = result.download_url; dl.style.display = 'inline-flex'; }
+        videoDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (resArea) {
+            resArea.style.display = 'block';
+            const textResult = document.getElementById('text-result');
+            if (textResult) textResult.textContent = 'Video extracted and ready for playback.';
+            const dlb = document.getElementById('download-btn');
+            if (dlb) dlb.style.display = 'none';
+        }
+        return;
+    }
+
+    // For other file types (audio, video, or unknown) - show download button
     if (resArea) {
         resArea.style.display = 'block';
         const textResult = document.getElementById('text-result');
@@ -875,9 +985,12 @@ async function submitForm(type) {
             showToast(result.message || result.error, true);
         }
     } catch (error) {
-
-        showToast('An error occurred. Please check console.', true);
         console.error(error);
+        if (error.message.includes('Failed to fetch')) {
+            showToast('Connection Error: Server is unreachable. Please restart the app.', true);
+        } else {
+            showToast('An error occurred. Please check console.', true);
+        }
     } finally {
         toggleLoading(false);
     }
@@ -1019,10 +1132,30 @@ function showImageComparison(coverUrl, hiddenUrl, result = null) {
     const container = document.getElementById('image-comparison-display');
     if (container) container.style.display = 'block';
 
+    const coverPanel = document.querySelector('#image-comparison-display .comparison-panels .image-panel:first-child');
     const coverImg = document.getElementById('cover-image-preview');
-    if (coverImg && coverUrl) {
+    const hiddenImageTitle = document.getElementById('hidden-image-title');
+
+    if (coverUrl && coverImg && coverPanel) {
         coverImg.src = coverUrl;
         coverImg.style.display = 'block';
+        coverPanel.style.display = 'block';
+        // Show "Cover Image" title for hide operation
+        if (coverPanel.querySelector('h3')) {
+            coverPanel.querySelector('h3').textContent = 'Cover Image';
+        }
+    } else if (coverPanel) {
+        // Hide cover panel for extraction operations
+        coverPanel.style.display = 'none';
+    }
+
+    // Update title based on operation
+    if (hiddenImageTitle) {
+        if (state.operation === 'extract') {
+            hiddenImageTitle.textContent = 'Extracted Image';
+        } else {
+            hiddenImageTitle.textContent = 'Hidden Image Output';
+        }
     }
 
     const hiddenImg = document.getElementById('hidden-image-preview');

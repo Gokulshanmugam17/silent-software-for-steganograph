@@ -275,41 +275,7 @@
                             </div>
                         </div>
 
-                        <!-- Image Comparison Display -->
-                        <div id="image-comparison-display" class="image-comparison-container" style="display: none;">
-                            <div class="comparison-panels">
-                                <div class="image-panel">
-                                    <h3 style="text-align: center; color: var(--text-muted);">Cover Image</h3>
-                                    <div class="image-display-box" id="cover-image-display">
-                                        <img id="cover-image-preview" src="" alt="Cover Image" style="display: none;">
-                                    </div>
-                                </div>
-                                <div class="image-panel">
-                                    <h3 style="text-align: center; color: var(--text-muted);">Hidden Image Output</h3>
-                                    <div class="image-display-box" id="hidden-image-display">
-                                        <img id="hidden-image-preview" src="" alt="Hidden Image Output"
-                                            style="display: none;">
-                                    </div>
-                                    <div id="image-output-actions"
-                                        style="display: none; gap: 1rem; margin-top: 1rem; justify-content: center;">
-                                        <a id="image-download-btn-direct" href="#" class="action-btn secondary"
-                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem;">
-                                            <i class="fa-solid fa-download"></i> Download
-                                        </a>
-                                        <button id="image-share-btn" onclick="openShareModal('image')"
-                                            class="action-btn share-btn"
-                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
-                                            <i class="fa-solid fa-share-nodes"></i> Share
-                                        </button>
-                                        <button id="image-native-share-btn" onclick="shareImageNative()"
-                                            class="action-btn"
-                                            style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
-                                            <i class="fa-solid fa-share"></i> Direct
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Image Comparison Display moved outside sections for shared visibility -->
 
                         <!-- Stego Output Result -->
                         <div id="stego-output-area" class="glass-card"
@@ -416,6 +382,43 @@
                                     <i class="fa-solid fa-share-nodes"></i> Share
                                 </button>
                                 <button id="extract-native-share-btn" onclick="shareExtractionNative()"
+                                    class="action-btn"
+                                    style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                    <i class="fa-solid fa-share"></i> Direct
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SHARED MEDIA OUTPUT DISPLAYS -->
+                <!-- Image Comparison Display -->
+                <div id="image-comparison-display" class="image-comparison-container" style="display: none; margin-top: 20px;">
+                    <div class="comparison-panels">
+                        <div class="image-panel" id="cover-image-panel">
+                            <h3 style="text-align: center; color: var(--text-muted);">Cover Image</h3>
+                            <div class="image-display-box" id="cover-image-display">
+                                <img id="cover-image-preview" src="" alt="Cover Image" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="image-panel">
+                            <h3 style="text-align: center; color: var(--text-muted);" id="hidden-image-title">Hidden Image Output</h3>
+                            <div class="image-display-box" id="hidden-image-display">
+                                <img id="hidden-image-preview" src="" alt="Hidden Image Output"
+                                    style="display: none;">
+                            </div>
+                            <div id="image-output-actions"
+                                style="display: none; gap: 1rem; margin-top: 1rem; justify-content: center;">
+                                <a id="image-download-btn-direct" href="#" class="action-btn secondary"
+                                    style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem;">
+                                    <i class="fa-solid fa-download"></i> Download
+                                </a>
+                                <button id="image-share-btn" onclick="openShareModal('image')"
+                                    class="action-btn share-btn"
+                                    style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; background: var(--primary-alpha-20); border: 1px solid var(--primary);">
+                                    <i class="fa-solid fa-share-nodes"></i> Share
+                                </button>
+                                <button id="image-native-share-btn" onclick="shareImageNative()"
                                     class="action-btn"
                                     style="width: auto; padding: 0.6rem 1.2rem; font-size: 0.85rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
                                     <i class="fa-solid fa-share"></i> Direct

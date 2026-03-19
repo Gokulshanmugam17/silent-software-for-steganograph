@@ -122,7 +122,8 @@ class AudioSteganography:
             # Use NumPy for efficient binary conversion
             text_bytes = text.encode('utf-8')
             text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             binary_array = np.concatenate([text_bits, del_bits])
             
             if len(binary_array) > len(audio_array):
@@ -170,7 +171,8 @@ class AudioSteganography:
             lsbs = (audio_array & 1).astype(np.uint8)
             
             # Convert delimiter to bits for search
-            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            delimiter_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             
             # Find delimiter
             found_index = -1
@@ -229,14 +231,16 @@ class AudioSteganography:
             return False, f"Error extracting text: {str(e)}"
     
     def hide_audio(self, cover_path: str, secret_path: str, output_path: str,
-                   callback=None) -> Tuple[bool, str]:
+                   password: Optional[str] = None, callback=None) -> Tuple[bool, str]:
         """
         Hide an audio file inside another audio file.
+        Uses 4-bit MSB substitution with normalization and optional encryption.
         
         Args:
             cover_path: Path to the cover audio
             secret_path: Path to the secret audio
             output_path: Path to save the output
+            password: Optional password for encryption
             callback: Optional callback function
             
         Returns:
@@ -247,25 +251,54 @@ class AudioSteganography:
             cover_array, cover_params, cover_segment = self._read_audio_data(cover_path)
             cover_array = cover_array.copy()
             
-            # Read secret audio
-            secret_array, _, _ = self._read_audio_data(secret_path)
+            # Read and normalize secret audio to match cover
+            secret_segment = AudioSegment.from_file(secret_path)
             
-            # Ensure they are the same type for bit manipulation
-            if cover_array.dtype != secret_array.dtype:
-                secret_array = secret_array.astype(cover_array.dtype)
+            # Match framerate and channels
+            if secret_segment.frame_rate != cover_segment.frame_rate:
+                secret_segment = secret_segment.set_frame_rate(cover_segment.frame_rate)
+            if secret_segment.channels != cover_segment.channels:
+                secret_segment = secret_segment.set_channels(cover_segment.channels)
+            if secret_segment.sample_width != 2:
+                secret_segment = secret_segment.set_sample_width(2)
+                
+            # Get secret array from normalized segment
+            secret_array = np.array(secret_segment.get_array_of_samples(), dtype=np.int16)
             
             # Pad or truncate secret to match cover length
             if len(secret_array) < len(cover_array):
-                secret_array = np.pad(secret_array, (0, len(cover_array) - len(secret_array)))
+                # Add tiny random noise to the padding to avoid absolute silence patterns
+                padding_len = len(cover_array) - len(secret_array)
+                padding = np.random.randint(-5, 5, padding_len, dtype=np.int16)
+                secret_array = np.concatenate([secret_array, padding])
             else:
                 secret_array = secret_array[:len(cover_array)]
             
-            # Combine: Hide 4 MSBs of secret in 4 LSBs of cover
-            # Works best for 16-bit audio (dtype=int16)
-            # Normalized to int16: Hide 4 MSBs of secret in 4 LSBs of cover
-            stego_array = (cover_array & 0xFFF0) | ((secret_array >> 12) & 0x000F)
+            # Encrypt secret bits if password provided
+            if password:
+                from .utils import generate_key
+                # Generate a simple stream key from password
+                key = generate_key(password)
+                # Expand key to match array length (using seed for reproducibility)
+                import hashlib
+                seed = int(hashlib.md5(key).hexdigest(), 16) % (2**32)
+                np.random.seed(seed)
+                # Create XOR mask for the 4 bits we'll hide (0x0...0x000F)
+                xor_mask = np.random.randint(0, 16, len(secret_array), dtype=np.int16)
+            else:
+                xor_mask = np.zeros(len(secret_array), dtype=np.int16)
             
-            # Ensure output is WAV
+            # Combine: Hide 4 MSBs of secret in 4 LSBs of cover
+            # (secret_array >> 12) extracts top 4 bits. 
+            # XORed with mask for security.
+            secret_bits = ((secret_array >> 12) & 0x000F) ^ (xor_mask & 0x000F)
+            
+            # Use uint16 for bitwise manipulation to avoid signed overflow/out-of-bounds errors in NumPy
+            u_cover = cover_array.astype(np.uint16)
+            u_stego = (u_cover & 0xFFF0) | (secret_bits.astype(np.uint16) & 0x000F)
+            stego_array = u_stego.astype(np.int16)
+            
+            # Ensure output is WAV for stego integrity
             if not output_path.lower().endswith('.wav'):
                 output_path += '.wav'
             
@@ -282,13 +315,14 @@ class AudioSteganography:
             return False, f"Error hiding audio: {str(e)}"
     
     def extract_audio(self, stego_path: str, output_path: str,
-                      callback=None) -> Tuple[bool, str]:
+                      password: Optional[str] = None, callback=None) -> Tuple[bool, str]:
         """
         Extract hidden audio from a stego audio file.
         
         Args:
             stego_path: Path to the stego audio
             output_path: Path to save the extracted audio
+            password: Optional password for decryption
             callback: Optional callback function
             
         Returns:
@@ -298,9 +332,22 @@ class AudioSteganography:
             # Read stego audio
             stego_array, params, stego_segment = self._read_audio_data(stego_path)
             
-            # Extract 4 LSBs and shift back to MSB position
-            # Normalized to int16: Extract 4 LSBs and shift back to MSB position
-            extracted_array = (stego_array & 0x000F) << 12
+            # Extract 4 LSBs using uint16 to avoid signed bitwise unexpected behaviors
+            u_stego = stego_array.astype(np.uint16)
+            extracted_bits = (u_stego & 0x000F).astype(np.int16)
+            
+            # Decrypt if password provided
+            if password:
+                from .utils import generate_key
+                key = generate_key(password)
+                import hashlib
+                seed = int(hashlib.md5(key).hexdigest(), 16) % (2**32)
+                np.random.seed(seed)
+                xor_mask = np.random.randint(0, 16, len(stego_array), dtype=np.int16)
+                extracted_bits = extracted_bits ^ (xor_mask & 0x000F)
+            
+            # Shift back to MSB position
+            extracted_array = (extracted_bits << 12).astype(np.int16)
             
             # Ensure output is WAV
             if not output_path.lower().endswith('.wav'):
@@ -336,7 +383,8 @@ class AudioSteganography:
             
             header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
             data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             
             binary_array = np.concatenate([header_bits, data_bits, del_bits])
             
@@ -376,7 +424,8 @@ class AudioSteganography:
             lsbs = (audio_array & 1).astype(np.uint8)
             
             # Find delimiter
-            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            delimiter_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             delimiter_index = -1
             for i in range(0, len(lsbs) - len(delimiter_bits), 8):
                 if np.array_equal(lsbs[i : i + len(delimiter_bits)], delimiter_bits):

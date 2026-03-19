@@ -47,16 +47,24 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            # Try multiple codecs in order of preference
+            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            out = None
             
-            if not out.isOpened():
+            for codec in codecs_to_try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                if out.isOpened():
+                    break
+            
+            if not out or not out.isOpened():
                 fourcc = cv2.VideoWriter_fourcc(*'MJPG')
                 out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
             text_bytes = text.encode('utf-8')
             text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             binary_array = np.concatenate([text_bits, del_bits])
             
             total_binary = len(binary_array)
@@ -100,8 +108,9 @@ class VideoSteganography:
             all_frames_lsbs = []
             found = False
             frame_num = 0
-            del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
-            del_bytes = del_arr.tobytes()
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
+            # Convert delimiter bits to bytes (pack 8 bits into 1 byte)
+            del_bytes = np.packbits(del_bits).tobytes()
             
             while True:
                 ret, frame = cap.read()
@@ -113,23 +122,30 @@ class VideoSteganography:
                 lsbs = (frame.ravel() & 1).astype(np.uint8)
                 all_frames_lsbs.append(lsbs)
                 
+                # Check for delimiter every 10 frames using faster byte search
                 if len(all_frames_lsbs) % 10 == 0:
                     recent = np.concatenate(all_frames_lsbs[-12:])
-                    if recent.tobytes().find(del_bytes) != -1:
+                    recent_packed = np.packbits(recent).tobytes()
+                    if del_bytes in recent_packed:
                         found = True
                         break
                 frame_num += 1
             cap.release()
             
-            if not found:
-                if not all_frames_lsbs: return False, "No frames processed."
-                full_lsbs = np.concatenate(all_frames_lsbs)
-                del_idx = full_lsbs.tobytes().find(del_bytes)
-                if del_idx == -1: return False, "No hidden message found."
-            else:
-                full_lsbs = np.concatenate(all_frames_lsbs)
-                del_idx = full_lsbs.tobytes().find(del_bytes)
+            if not all_frames_lsbs:
+                return False, "No frames processed."
             
+            full_lsbs = np.concatenate(all_frames_lsbs)
+            
+            # Use faster byte-based search
+            full_packed = np.packbits(full_lsbs).tobytes()
+            del_idx = full_packed.find(del_bytes)
+            
+            if del_idx == -1:
+                return False, "No hidden message found."
+            
+            # Convert byte position back to bit position
+            del_idx = del_idx * 8
             binary_data = "".join(map(str, full_lsbs[:del_idx]))
             
             if callback:
@@ -175,22 +191,67 @@ class VideoSteganography:
             fps = cover_cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cover_cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
+            # Get secret video properties
+            secret_width = int(secret_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            secret_height = int(secret_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            secret_fps = secret_cap.get(cv2.CAP_PROP_FPS)
+            secret_frame_count = int(secret_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            # Try multiple codecs in order of preference (compression efficiency)
+            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            out = None
+            
+            for codec in codecs_to_try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                if out.isOpened():
+                    break
+            
+            if not out or not out.isOpened():
+                # Last resort: try with default backend
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height), True)
+            
+            # Store metadata in the first frame using LSB
+            # Metadata format: {{VIDEO_META:SW=width,SH=height,SF=fps,SN=frame_count}}
+            metadata = f"{{{{VIDEO_META:SW={secret_width},SH={secret_height},SF={secret_fps},SN={secret_frame_count}}}}}"
+            metadata_bytes = metadata.encode('utf-8')
+            metadata_bits = np.unpackbits(np.frombuffer(metadata_bytes, dtype=np.uint8))
             
             frame_num = 0
+            # Track secret frames separately
+            ret_secret, secret_frame = secret_cap.read()
+            
             while True:
                 ret_cover, cover_frame = cover_cap.read()
                 if not ret_cover: break
-                ret_secret, secret_frame = secret_cap.read()
                 if callback: callback(int((frame_num / frame_count) * 100))
                 
-                if ret_secret:
+                # Ensure frames are uint8 for proper bitwise operations
+                if cover_frame is None:
+                    break
+                cover_frame = np.clip(cover_frame, 0, 255).astype(np.uint8)
+                
+                # Embed metadata in first frame (using 1-bit LSB)
+                if frame_num == 0:
+                    stego_frame = cover_frame.copy()
+                    flat = stego_frame.ravel()
+                    total_meta_bits = len(metadata_bits)
+                    to_hide = min(total_meta_bits, len(flat))
+                    flat[:to_hide] = (flat[:to_hide] & 0xFE) | metadata_bits[:to_hide]
+                elif ret_secret and secret_frame is not None:
                     secret_frame = cv2.resize(secret_frame, (width, height))
-                    stego_frame = (cover_frame & 0xF0) | (secret_frame >> 4)
+                    secret_frame = np.clip(secret_frame, 0, 255).astype(np.uint8)
+                    # 4-bit LSB steganography: hide upper 4 bits of secret in lower 4 bits of cover
+                    stego_frame = np.zeros_like(cover_frame)
+                    stego_frame[:, :, 0] = (cover_frame[:, :, 0] & 0xF0) | ((secret_frame[:, :, 0] >> 4) & 0x0F)  # Blue
+                    stego_frame[:, :, 1] = (cover_frame[:, :, 1] & 0xF0) | ((secret_frame[:, :, 1] >> 4) & 0x0F)  # Green
+                    stego_frame[:, :, 2] = (cover_frame[:, :, 2] & 0xF0) | ((secret_frame[:, :, 2] >> 4) & 0x0F)  # Red
+                    # Read next secret frame for next iteration
+                    ret_secret, secret_frame = secret_cap.read()
                 else:
                     stego_frame = cover_frame
                 
@@ -208,26 +269,105 @@ class VideoSteganography:
     def extract_video(self, stego_path: str, output_path: str,
                       callback=None) -> Tuple[bool, str]:
         try:
+            import re
             cap = cv2.VideoCapture(stego_path)
+            if not cap.isOpened():
+                return False, "Could not open stego video file"
+            
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            stego_fps = cap.get(cv2.CAP_PROP_FPS)
+            stego_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            # Extract metadata from first frame
+            ret, first_frame = cap.read()
+            if not ret:
+                cap.release()
+                return False, "Could not read first frame"
             
+            first_frame = np.clip(first_frame, 0, 255).astype(np.uint8)
+            lsbs = (first_frame.ravel() & 1).astype(np.uint8)
+            
+            # Find metadata in LSBs
+            del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
+            del_bytes = del_arr.tobytes()
+            
+            # Look for metadata pattern
+            lsb_bytes = lsbs.tobytes()
+            meta_match = re.search(rb'\{\{VIDEO_META:SW=(\d+),SH=(\d+),SF=([\d.]+),SN=(\d+)\}\}', lsb_bytes)
+            
+            if meta_match:
+                secret_width = int(meta_match.group(1))
+                secret_height = int(meta_match.group(2))
+                secret_fps = float(meta_match.group(3))
+                secret_frame_count = int(meta_match.group(4))
+            else:
+                # Fallback: assume metadata not found, use stego video properties
+                secret_width = width
+                secret_height = height
+                secret_fps = stego_fps
+                secret_frame_count = stego_frame_count - 1  # Assume first frame is metadata
+            
+            if not output_path.lower().endswith('.avi'):
+                output_path = os.path.splitext(output_path)[0] + '.avi'
+            
+            # Use H264 for better compression (smaller file size)
+            fourcc = cv2.VideoWriter_fourcc(*'H264')
+            out = cv2.VideoWriter(output_path, fourcc, secret_fps, (secret_width, secret_height))
+            
+            if not out.isOpened():
+                # Fallback to other codecs
+                codecs_to_try = ['XVID', 'MJPG', 'avc1', 'XMPG']
+                out = None
+                for codec in codecs_to_try:
+                    fourcc = cv2.VideoWriter_fourcc(*codec)
+                    out = cv2.VideoWriter(output_path, fourcc, secret_fps, (secret_width, secret_height))
+                    if out.isOpened():
+                        break
+            
+            if not out or not out.isOpened():
+                cap.release()
+                return False, "Could not create output video writer"
+            
+            # Read and extract video frames (skip first frame which is metadata)
             frame_num = 0
-            while True:
+            extracted_count = 0
+            
+            while extracted_count < secret_frame_count:
                 ret, frame = cap.read()
-                if not ret: break
-                if callback: callback(int((frame_num / frame_count) * 100))
-                extracted_frame = (frame & 0x0F) << 4
+                if not ret:
+                    break
+                if callback: callback(int((extracted_count / secret_frame_count) * 100))
+                
+                frame = np.clip(frame, 0, 255).astype(np.uint8)
+                
+                # Skip the first frame (metadata frame)
+                if frame_num == 0:
+                    frame_num += 1
+                    continue
+                
+                # Extract the hidden video: get lower 4 bits and shift to upper 4 bits
+                # Also resize to original secret video dimensions if different
+                extracted_frame = np.zeros((secret_height, secret_width, 3), dtype=np.uint8)
+                
+                # Resize stego frame if needed
+                if width != secret_width or height != secret_height:
+                    frame = cv2.resize(frame, (secret_width, secret_height))
+                
+                extracted_frame[:, :, 0] = ((frame[:, :, 0] & 0x0F) << 4)  # Blue
+                extracted_frame[:, :, 1] = ((frame[:, :, 1] & 0x0F) << 4)  # Green
+                extracted_frame[:, :, 2] = ((frame[:, :, 2] & 0x0F) << 4)  # Red
+                
                 out.write(extracted_frame)
+                extracted_count += 1
                 frame_num += 1
             
             cap.release()
             out.release()
+            
+            if extracted_count < secret_frame_count:
+                return True, f"Video extracted ({extracted_count} frames) to {output_path}"
+            
             if callback: callback(100)
             return True, f"Video extracted successfully to {output_path}"
         except Exception as e:
@@ -247,7 +387,8 @@ class VideoSteganography:
             header = f"{{{{FILE:{filename},SIZE:{len(data)}}}}}"
             header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
             data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             
             binary_array = np.concatenate([header_bits, data_bits, del_bits])
             total_binary = len(binary_array)
@@ -263,8 +404,19 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
                 
-            fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            # Try multiple codecs in order of preference
+            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            out = None
+            
+            for codec in codecs_to_try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                if out.isOpened():
+                    break
+            
+            if not out or not out.isOpened():
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
             while True:
                 ret, frame = cap.read()
@@ -299,8 +451,9 @@ class VideoSteganography:
             all_frames_lsbs = []
             found = False
             frame_num = 0
-            del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
-            del_bytes = del_arr.tobytes()
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
+            # Convert delimiter bits to bytes (pack 8 bits into 1 byte)
+            del_bytes = np.packbits(del_bits).tobytes()
             
             while True:
                 ret, frame = cap.read()
@@ -308,21 +461,32 @@ class VideoSteganography:
                 if callback: callback(int((frame_num / frame_count) * 40))
                 lsbs = (frame.ravel() & 1).astype(np.uint8)
                 all_frames_lsbs.append(lsbs)
+                
+                # Check for delimiter every 10 frames using faster byte search
                 if len(all_frames_lsbs) % 10 == 0:
                     recent = np.concatenate(all_frames_lsbs[-12:])
-                    if recent.tobytes().find(del_bytes) != -1:
+                    recent_packed = np.packbits(recent).tobytes()
+                    if del_bytes in recent_packed:
                         found = True
                         break
                 frame_num += 1
                 
             cap.release()
-            if not found:
-                full_lsbs = np.concatenate(all_frames_lsbs)
-                del_idx = full_lsbs.tobytes().find(del_bytes)
-                if del_idx == -1: return False, "No hidden file found."
-            else:
-                full_lsbs = np.concatenate(all_frames_lsbs)
-                del_idx = full_lsbs.tobytes().find(del_bytes)
+            
+            if not all_frames_lsbs:
+                return False, "No frames processed."
+            
+            full_lsbs = np.concatenate(all_frames_lsbs)
+            
+            # Use faster byte-based search
+            full_packed = np.packbits(full_lsbs).tobytes()
+            del_idx = full_packed.find(del_bytes)
+            
+            if del_idx == -1:
+                return False, "No hidden file found."
+            
+            # Convert byte position back to bit position
+            del_idx = del_idx * 8
 
             binary_data_arr = full_lsbs[:del_idx]
             full_bytes = binary_to_bytes("".join(map(str, binary_data_arr)))

@@ -80,7 +80,8 @@ class ImageSteganography:
             # Use NumPy for efficient binary conversion
             text_bytes = text.encode('utf-8')
             text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             binary_array = np.concatenate([text_bits, del_bits])
             
             # Flatten the array for easier manipulation
@@ -136,15 +137,24 @@ class ImageSteganography:
             lsbs = (flat_array & 1).astype(np.uint8)
             
             # Convert delimiter to a numpy array of bits for efficient search
-            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            delimiter_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             
-            # Find the delimiter using a sliding window comparison
+            # Find the delimiter using optimized bit-shifted searches
+            # We try all 8 bit-shifts to find the delimiter even if not byte-aligned
             found_index = -1
-            for i in range(len(lsbs) - len(delimiter_bits) + 1):
-                if np.array_equal(lsbs[i : i + len(delimiter_bits)], delimiter_bits):
-                    found_index = i
+            del_packed = np.packbits(delimiter_bits).tobytes()
+            
+            for shift in range(8):
+                shifted_lsbs = lsbs[shift:]
+                # Pack the shifted bits into bytes
+                lsbs_packed = np.packbits(shifted_lsbs).tobytes()
+                found_byte_index = lsbs_packed.find(del_packed)
+                
+                if found_byte_index != -1:
+                    found_index = (found_byte_index * 8) + shift
                     break
-
+            
             if found_index == -1:
                 return False, "No hidden message found or message is corrupted."
             
@@ -283,8 +293,8 @@ class ImageSteganography:
             
             header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
             data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-            del_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
-            
+            # Convert the binary string properly to bit values
+            del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             binary_array = np.concatenate([header_bits, data_bits, del_bits])
             
             # Open cover
@@ -318,15 +328,22 @@ class ImageSteganography:
             lsbs = (flat_array & 1).astype(np.uint8)
             
             # Convert delimiter to a numpy array of bits for efficient search
-            delimiter_bits = (np.fromiter(self.delimiter, dtype='u1') - 48).astype(np.uint8)
+            # Convert the binary string properly to bit values
+            delimiter_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             
-            # Find the delimiter using a sliding window comparison
+            # Find the delimiter using optimized bit-shifted searches
             delimiter_index = -1
-            for i in range(len(lsbs) - len(delimiter_bits) + 1):
-                if np.array_equal(lsbs[i : i + len(delimiter_bits)], delimiter_bits):
-                    delimiter_index = i
+            del_packed = np.packbits(delimiter_bits).tobytes()
+            
+            for shift in range(8):
+                shifted_lsbs = lsbs[shift:]
+                lsbs_packed = np.packbits(shifted_lsbs).tobytes()
+                found_byte_index = lsbs_packed.find(del_packed)
+                
+                if found_byte_index != -1:
+                    delimiter_index = (found_byte_index * 8) + shift
                     break
-
+            
             if delimiter_index == -1:
                 return False, "No steganographic header or delimiter found."
 
