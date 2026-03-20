@@ -47,8 +47,8 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            # Try multiple codecs in order of preference
-            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            # Try multiple codecs in order of preference. Prefer lossless (FFV1, HFYU) for steganography.
+            codecs_to_try = ['FFV1', 'HFYU', 'DIB ', 'XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
             out = None
             
             for codec in codecs_to_try:
@@ -62,10 +62,13 @@ class VideoSteganography:
                 out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
             text_bytes = text.encode('utf-8')
+            # Use a robust header for metadata
+            header = f"{{{{TEXT_META:LEN={len(text_bytes)}}}}}"
+            header_bits = np.unpackbits(np.frombuffer(header.encode('utf-8'), dtype=np.uint8))
             text_bits = np.unpackbits(np.frombuffer(text_bytes, dtype=np.uint8))
             # Convert the binary string properly to bit values
             del_bits = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
-            binary_array = np.concatenate([text_bits, del_bits])
+            binary_array = np.concatenate([header_bits, text_bits, del_bits])
             
             total_binary = len(binary_array)
             binary_index = 0
@@ -137,19 +140,51 @@ class VideoSteganography:
             
             full_lsbs = np.concatenate(all_frames_lsbs)
             
-            # Use faster byte-based search
-            full_packed = np.packbits(full_lsbs).tobytes()
-            del_idx = full_packed.find(del_bytes)
+            # Search for delimiter/header at all 8 possible bit alignments
+            # This handles cases where frame sizes are not multiples of 8 or other shifting
+            del_idx = -1
+            text_result = None
+            winning_shift = 0
             
+            for shift in range(8):
+                packed_bytes = np.packbits(full_lsbs[shift:]).tobytes()
+                
+                # OPTION 1: Header-based search (New, more robust)
+                import re
+                header_match = re.search(rb'\{\{TEXT_META:LEN=(\d+)\}\}', packed_bytes)
+                if header_match:
+                    length = int(header_match.group(1))
+                    start_byte = header_match.end()
+                    text_bytes = packed_bytes[start_byte : start_byte + length]
+                    try:
+                        text_found = text_bytes.decode('utf-8', errors='ignore')
+                        if password:
+                            try:
+                                from .utils import decrypt_message
+                                text_found = decrypt_message(text_found, password)
+                            except: pass
+                        if text_found:
+                            text_result = text_found
+                            break 
+                    except: pass
+                
+                # OPTION 2: Delimiter-based search (Fallback)
+                found_idx = packed_bytes.find(del_bytes)
+                if found_idx != -1:
+                    del_idx = (found_idx * 8) + shift
+                    winning_shift = shift
+                    break
+            
+            # Finalize extraction
+            if text_result:
+                if callback: callback(100)
+                return True, text_result
+                
             if del_idx == -1:
                 return False, "No hidden message found."
-            
-            # Convert byte position back to bit position
-            del_idx = del_idx * 8
-            binary_data = "".join(map(str, full_lsbs[:del_idx]))
-            
-            if callback:
-                callback(75)
+
+            # Extract using the correct bit alignment
+            binary_data = "".join(map(str, full_lsbs[winning_shift:del_idx]))
             text = binary_to_text(binary_data)
             
             if password:
@@ -200,8 +235,8 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
-            # Try multiple codecs in order of preference (compression efficiency)
-            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            # Try multiple codecs in order of preference (prefer lossless for steganography)
+            codecs_to_try = ['FFV1', 'HFYU', 'DIB ', 'XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
             out = None
             
             for codec in codecs_to_try:
@@ -292,9 +327,9 @@ class VideoSteganography:
             del_arr = np.array([int(b) for b in self.delimiter], dtype=np.uint8)
             del_bytes = del_arr.tobytes()
             
-            # Look for metadata pattern
-            lsb_bytes = lsbs.tobytes()
-            meta_match = re.search(rb'\{\{VIDEO_META:SW=(\d+),SH=(\d+),SF=([\d.]+),SN=(\d+)\}\}', lsb_bytes)
+            # Pack bits back to bytes for regex search
+            lsb_packed_bytes = np.packbits(lsbs).tobytes()
+            meta_match = re.search(rb'\{\{VIDEO_META:SW=(\d+),SH=(\d+),SF=([\d.]+),SN=(\d+)\}\}', lsb_packed_bytes)
             
             if meta_match:
                 secret_width = int(meta_match.group(1))
@@ -368,8 +403,9 @@ class VideoSteganography:
             if extracted_count < secret_frame_count:
                 return True, f"Video extracted ({extracted_count} frames) to {output_path}"
             
+            msg = "Video extracted successfully" if meta_match else "Video sequence extracted (No metadata found)"
             if callback: callback(100)
-            return True, f"Video extracted successfully to {output_path}"
+            return True, f"{msg} to {output_path}"
         except Exception as e:
             return False, f"Error extracting video: {str(e)}"
 
@@ -404,8 +440,8 @@ class VideoSteganography:
             if not output_path.lower().endswith('.avi'):
                 output_path = os.path.splitext(output_path)[0] + '.avi'
                 
-            # Try multiple codecs in order of preference
-            codecs_to_try = ['XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
+            # Try multiple codecs in order of preference. Prefer lossless (FFV1, HFYU) for steganography.
+            codecs_to_try = ['FFV1', 'HFYU', 'DIB ', 'XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
             out = None
             
             for codec in codecs_to_try:
@@ -478,24 +514,61 @@ class VideoSteganography:
             
             full_lsbs = np.concatenate(all_frames_lsbs)
             
-            # Use faster byte-based search
-            full_packed = np.packbits(full_lsbs).tobytes()
-            del_idx = full_packed.find(del_bytes)
+            # Search for delimiter/header at all 8 possible bit alignments
+            del_idx = -1
+            winning_shift = 0
+            found_file_path = None
             
+            for shift in range(8):
+                packed_bytes = np.packbits(full_lsbs[shift:]).tobytes()
+                
+                # OPTION 1: Header-based search
+                import re
+                header_match = re.search(rb"\{\{FILE:(.+?),SIZE:(\d+)\}\}", packed_bytes)
+                if header_match:
+                    try:
+                        filename = header_match.group(1).decode('utf-8', errors='ignore')
+                        filesize = int(header_match.group(2))
+                        start_byte = header_match.end()
+                        file_content = packed_bytes[start_byte : start_byte + filesize]
+                        
+                        if password:
+                            from .utils import decrypt_data
+                            try:
+                                file_content = decrypt_data(file_content, password)
+                            except: pass # Continue to next if password fails
+                        
+                        out_path = os.path.join(output_folder, filename)
+                        with open(out_path, 'wb') as f:
+                            f.write(file_content)
+                        found_file_path = out_path
+                        break
+                    except: pass
+
+                # OPTION 2: Delimiter-based search
+                found_idx = packed_bytes.find(del_bytes)
+                if found_idx != -1:
+                    del_idx = (found_idx * 8) + shift
+                    winning_shift = shift
+                    break
+            
+            if found_file_path:
+                if callback: callback(100)
+                return True, f"Extracted to {found_file_path}"
+
             if del_idx == -1:
                 return False, "No hidden file found."
-            
-            # Convert byte position back to bit position
-            del_idx = del_idx * 8
 
-            binary_data_arr = full_lsbs[:del_idx]
+            # Delimiter fallback
+            binary_data_arr = full_lsbs[winning_shift:del_idx]
+            from .utils import binary_to_bytes, decrypt_data
             full_bytes = binary_to_bytes("".join(map(str, binary_data_arr)))
             header_end = full_bytes.find(b'}}')
             if header_end == -1: return False, "Invalid file format."
             
             header_part = full_bytes[:header_end+2]
             file_content = full_bytes[header_end+2:]
-            import re
+            
             header_str = header_part.decode('utf-8', errors='ignore')
             match = re.search(r"{{FILE:(.+?),SIZE:(\d+)}}", header_str)
             if not match: return False, "Invalid header format."

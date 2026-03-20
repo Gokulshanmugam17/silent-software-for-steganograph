@@ -274,6 +274,8 @@ class MultiLayerSteganography:
                         # Check if extracted file is another layer
                         inner_ext = os.path.splitext(extracted_path)[1].lower()
                         if inner_ext in ['.png', '.bmp', '.wav', '.avi', '.mp4', '.mkv']:
+                            # It COULD be another layer, but we need to check if it actually contains something
+                            # We'll try to extract from it in the next iteration
                             intermediates.append(extracted_path)
                             current_stego = extracted_path
                             continue
@@ -286,9 +288,16 @@ class MultiLayerSteganography:
                 # Attempt 2: Extract as Text (Final layer)
                 success, result = stego.extract_text(current_stego, current_pw)
                 if success:
+                    # If this succeeds, it's definitely text data
                     layers_found += 1
                     return True, {'final': result, 'intermediates': intermediates}, layers_found
                 
+                # If we were processing intermediates and suddenly can't find anything more,
+                # the "current_stego" (which was the last extracted file) is the final one.
+                if layers_found > 0 and intermediates:
+                    final_file = intermediates.pop() # Remove from intermediates as it's the final
+                    return True, {'final': final_file, 'intermediates': intermediates}, layers_found
+
                 return False, f"Could not identify hidden data in layer {layers_found + 1}", layers_found
 
         except Exception as e:

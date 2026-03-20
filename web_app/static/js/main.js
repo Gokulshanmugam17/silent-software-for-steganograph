@@ -568,7 +568,7 @@ function displayExtractOutput(result) {
         if (resArea) {
             resArea.style.display = 'block';
             const textResult = document.getElementById('text-result');
-            if (textResult) textResult.textContent = 'Audio extracted and ready for playback.';
+            if (textResult) textResult.textContent = result.message || 'Audio extracted and ready for playback.';
             const dlb = document.getElementById('download-btn');
             if (dlb) dlb.style.display = 'none';
         }
@@ -585,7 +585,7 @@ function displayExtractOutput(result) {
         if (resArea) {
             resArea.style.display = 'block';
             const textResult = document.getElementById('text-result');
-            if (textResult) textResult.textContent = 'Video extracted and ready for playback.';
+            if (textResult) textResult.textContent = result.message || 'Video extracted and ready for playback.';
             const dlb = document.getElementById('download-btn');
             if (dlb) dlb.style.display = 'none';
         }
