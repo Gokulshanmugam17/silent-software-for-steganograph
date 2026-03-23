@@ -1,128 +1,73 @@
-# 🔐 Steganography Tool - Feature Summary
+# SILENT Features
 
-## ✅ Complete Feature List
-### 🔍 Operation History - Original vs Stego Comparison
-Track and review all your steganography operations with an interactive history system:
+This document lists the features implemented in the current codebase and calls out the practical limits that matter when using or documenting the project.
 
-- **📊 Operation Timeline** - View all hide/extract operations chronologically
-- **🎯 Side-by-side Comparison** - Original data vs. result preview for every operation
-- **✨ Real-time Feedback** - Success/failure status with detailed messages
-- **💾 LocalStorage Persistence** - History automatically saved and restored
-- **⏱️ Timestamps** - Each operation recorded with precise timestamps
-- **🎨 Visual Indicators** - Color-coded success/failure status badges
-- **📁 Export History** - Download operation history as JSON for records
-- **🗑️ Clear History** - Remove all preview history with one click
-- **🔐 Operation Details** - Media type, operation type, and encryption status shown
-- **📄 Data Preview** - First 200 characters of original and result displayed
+## Core capabilities
 
----
-### � Multi-Media Support
-SILENT supports comprehensive steganography across multiple media formats:
+### Text steganography
 
-- **📸 Image Steganography** (PNG, JPEG, BMP)
-  - Hide text messages in images
-  - Embed images within images
-  - Extract hidden content with AES-256 encryption
-  
-- **🎵 Audio Steganography** (WAV, MP3)
-  - Hide text in audio files
-  - Embed audio within audio
-  - Lossless extraction with optional passwords
-  
-- **🎬 Video Steganography** (MP4, AVI)
-  - Hide text in video frames
-  - Frame-based LSB steganography
-  - Extract from compressed video files
-  
-- **📝 Text Steganography** (hiding in documents)
-  - Hide text within visible text using zero-width characters
-  - Pure text-based steganography with no file dependencies
-  - Perfect for embedding secrets in documents
+- Hides secret text inside normal-looking cover text with zero-width characters
+- Supports optional password protection
+- Supports optional expiration headers for time-limited messages
+- Supports decoy-message output when decryption fails and decoy mode is enabled
 
----
+### Image steganography
 
-### �📷 Image Steganography
-1. ✅ **Hide Text in Images** - LSB steganography with optional AES-256 encryption
-2. ✅ **Extract Text from Images** - Retrieve hidden messages with password support
-3. ✅ **Hide Image in Image** - 4-bit steganography to hide one image inside another
-4. ✅ **Extract Hidden Image** - Recover secret images from stego images
+- Hides text in image pixels using LSB embedding
+- Hides arbitrary files in images with a metadata header
+- Hides one image inside another image using 4-bit channel substitution
+- Extracts hidden text, files, or embedded images
+- Best suited for lossless formats such as PNG, BMP, and TIFF
 
-### 🎵 Audio Steganography
-1. ✅ **Hide Text in Audio** - LSB steganography in WAV files with encryption
-2. ✅ **Extract Text from Audio** - Retrieve hidden messages
-3. ✅ **Hide Audio in Audio** - LSB technique to hide audio within audio
-4. ✅ **Extract Hidden Audio** - Recover secret audio from stego audio
+### Audio steganography
 
-### 🎬 Video Steganography
-1. ✅ **Hide Text in Video** - Frame-based LSB steganography
-2. ✅ **Extract Text from Video** - Retrieve hidden messages
+- Hides text in audio samples using LSB embedding
+- Hides arbitrary files in audio using a metadata header
+- Hides one audio signal inside another using 4-bit sample substitution
+- Extracts hidden text, files, or embedded audio
+- Accepts multiple audio input formats through `pydub`, but saves stego output as WAV
 
-## 🎨 User Interface
+### Video steganography
 
-### Web Interface Features
-- ✅ Modern glassmorphism design with dark mode
-- ✅ Sidebar navigation (Text, Image, Audio, Video, Multi-Layer, History)
-- ✅ Real-time comparison previews
-- ✅ Drag and drop file support
-- ✅ Responsive design
-- ✅ Progress indicators
-- ✅ Toast notifications
-- ✅ Password encryption support
+- Hides text across video frames using LSB embedding
+- Hides arbitrary files in video with a metadata header
+- Hides one video inside another using per-channel 4-bit substitution
+- Extracts text, files, or embedded video from stego videos
+- Uses bit-shift tolerant extraction logic for improved recovery
+- Prefers AVI-based output during embedding for better fidelity
 
-### CLI Features (cli.py)
-- ✅ Info command - Get file capacity and details
-- ✅ Hide command - Hide text in media files
-- ✅ Extract command - Extract hidden text
-- ✅ Progress bars in terminal
-- ✅ Password support
+### Multi-layer workflow
 
-## 🔒 Security Features
-- ✅ AES-256 encryption via Fernet
-- ✅ PBKDF2 key derivation with SHA-256
-- ✅ 480,000 iterations for key strengthening
-- ✅ Unique delimiter for message termination
+- CLI supports multi-layer hide and extract flows
+- Web app supports two-step layered hide and auto-extraction
+- Intermediate file-based layers use `hide_file` and `extract_file` where available to reduce data loss
 
-## 🛠️ Technical Implementation
+## Security-related features
 
-### Algorithms Used
-1. **LSB (Least Significant Bit)** - Text steganography
-2. **4-bit Image Steganography** - Image-in-image (4 MSBs from cover + 4 MSBs from secret)
-3. **LSB Audio** - Audio-in-audio (12 MSBs from cover + 4 MSBs from secret)
+- Password-derived encryption with PBKDF2 and `Fernet`
+- Expiration header support through the "Dead-Man Switch" behavior
+- Optional decoy message generation on failed decryption
+- Optional destructive wipe helper used by some expiration or failed-access paths
 
-### Supported Formats
-- **Images:** PNG, BMP, TIFF (lossless only)
-- **Audio:** WAV (uncompressed)
-- **Video:** AVI, MP4, MKV (output as AVI)
+## Web application features
 
-## 📊 Testing Status
+- Flask-based login flow using `users.json`
+- Upload-based processing for text, image, audio, video, and multi-layer operations
+- Download endpoints for generated outputs
+- Operation history stored in `history.json`
+- Cleanup endpoint for clearing uploaded working files
 
-✅ All modules implemented and integrated
-✅ Web Interface fully functional with all modules
-✅ Error handling and validation
-✅ Threading for non-blocking operations
-✅ File format validation
+## CLI features
 
-## 🚀 How to Run
+- `hide`, `extract`, and `info` commands for image, audio, and video
+- `multilayer hide` and `multilayer extract` commands
+- Optional output file saving for extracted text
+- Simple terminal progress display
 
-```bash
-# Web Application
-python main.py
+## Current limitations
 
-# Or double-click
-run.bat
-
-# CLI Examples
-python cli.py info image myimage.png
-python cli.py hide image cover.png output.png -t "Secret"
-python cli.py extract image output.png
-```
-
-## 📝 Next Steps (Optional Enhancements)
-
-- [ ] Add image preview functionality
-- [ ] Add audio playback
-- [ ] Batch processing support
-- [ ] Drag and drop file support
-- [ ] Export/import settings
-- [ ] Multi-language support
-- [ ] Video preview
+- Lossy formats can damage hidden data, especially for image and video steganography
+- Audio and video support may depend on FFmpeg/OpenCV codec availability on the local machine
+- Some destructive wipe paths overwrite the carrier file rather than surgically clearing only hidden bits
+- The documentation previously described some behaviors more broadly than the implementation; this file reflects the code in the current workspace
+- The repository includes a nested duplicate project folder, which can cause confusion about which copy is active

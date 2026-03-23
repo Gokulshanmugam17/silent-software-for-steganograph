@@ -4,12 +4,61 @@ let state = {
     dataType: 'text'
 };
 
+function resetForms() {
+    // Reset standard forms
+    const hideForm = document.getElementById('hide-form');
+    if (hideForm) hideForm.reset();
+    
+    const extractForm = document.getElementById('extract-form');
+    if (extractForm) extractForm.reset();
+    
+    // Reset Multi-Layer forms
+    const mlHideForm = document.getElementById('multilayer-hide-form');
+    if (mlHideForm) mlHideForm.reset();
+    
+    const mlExtractForm = document.getElementById('multilayer-extract-form');
+    if (mlExtractForm) mlExtractForm.reset();
+
+    // Clear all file info labels
+    const fileInfos = [
+        'source-file-info', 'media-file-info', 'stego-file-info', 
+        'ml-stego-info', 'ml-secret-file-info', 'ml-layer1-info', 'ml-layer2-info'
+    ];
+    fileInfos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '';
+    });
+
+    // Hide all possible output/result areas
+    const outputAreas = [
+        'result-area', 'stego-output-area', 'audio-output-display', 
+        'video-output-display', 'image-comparison-display', 
+        'ml-results-panel', 'ml-hide-results'
+    ];
+    outputAreas.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    // Special: clear preview images
+    ['cover-image-preview', 'hidden-image-preview', 'ml-l1-preview', 'ml-l2-preview'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.src = '';
+            el.style.display = 'none';
+        }
+    });
+
+    console.log("Forms and results reset.");
+}
+
 
 // This will be initialized at the end of the file in a single consolidated listener
 
 // --- State Management ---
 
 function setMediaType(type) {
+    resetForms();
     state.mediaType = type;
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.type === type);
@@ -110,6 +159,7 @@ function updateSwitchers(mediaType, operation) {
 }
 
 function setOperation(op) {
+    resetForms();
     state.operation = op;
     document.querySelectorAll('.tab-btn').forEach((btn, index) => {
         btn.classList.toggle('active', (index === 0 && op === 'hide') || (index === 1 && op === 'extract'));

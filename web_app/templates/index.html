@@ -392,6 +392,62 @@
                 </div>
 
                 <!-- SHARED MEDIA OUTPUT DISPLAYS -->
+                <!-- Audio Output Display -->
+                <div id="audio-output-display" class="glass-card"
+                    style="display: none; margin-top: 2rem; border-color: var(--primary);">
+                    <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                        <i class="fa-solid fa-music"></i> Steganography Audio Output
+                    </h3>
+                    <div class="audio-player-container"
+                        style="background: rgba(0,0,0,0.2); padding: 2rem; border-radius: 20px; text-align: center;">
+                        <audio id="stego-audio-player" controls
+                            style="width: 100%; filter: invert(1) hue-rotate(180deg) brightness(1.5);"></audio>
+                        <div id="audio-output-actions"
+                            style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
+                            <a id="audio-download-btn" href="#" class="action-btn"
+                                style="width: auto; padding: 0.8rem 1.5rem;">
+                                <i class="fa-solid fa-download"></i> Download Audio
+                            </a>
+                            <button id="audio-share-btn" onclick="openShareModal('audio')"
+                                class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
+                                <i class="fa-solid fa-share-nodes"></i> Share
+                            </button>
+                            <button id="audio-native-share-btn" onclick="shareAudioNative()" class="action-btn"
+                                style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                <i class="fa-solid fa-share"></i> Direct
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Output Display -->
+                <div id="video-output-display" class="glass-card"
+                    style="display: none; margin-top: 2rem; border-color: var(--primary);">
+                    <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
+                        <i class="fa-solid fa-file-video"></i> Steganography Video Output
+                    </h3>
+                    <div class="video-player-container"
+                        style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 20px; text-align: center;">
+                        <video id="stego-video-player" controls
+                            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); max-height: 400px; background: #000;"></video>
+                        <div id="video-output-actions"
+                            style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
+                            <a id="video-download-btn" href="#" class="action-btn"
+                                style="width: auto; padding: 0.8rem 1.5rem;">
+                                <i class="fa-solid fa-download"></i> Download Video
+                            </a>
+                            <button id="video-share-btn" onclick="openShareModal('video')"
+                                class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
+                                <i class="fa-solid fa-share-nodes"></i> Share
+                            </button>
+                            <button id="video-native-share-btn" onclick="shareVideoNative()" class="action-btn"
+                                style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
+                                <i class="fa-solid fa-share"></i> Direct
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Image Comparison Display -->
                 <div id="image-comparison-display" class="image-comparison-container" style="display: none; margin-top: 20px;">
                     <div class="comparison-panels">

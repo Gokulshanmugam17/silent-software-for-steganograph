@@ -347,22 +347,36 @@ class VideoSteganography:
                 output_path = os.path.splitext(output_path)[0] + '.avi'
             
             # Use H264 for better compression (smaller file size)
-            fourcc = cv2.VideoWriter_fourcc(*'H264')
-            out = cv2.VideoWriter(output_path, fourcc, secret_fps, (secret_width, secret_height))
+            # Prefer .mp4 for extraction to allow web playback
+            if not output_path.lower().endswith('.mp4'):
+                output_path = os.path.splitext(output_path)[0] + '.mp4'
             
-            if not out.isOpened():
-                # Fallback to other codecs
-                codecs_to_try = ['XVID', 'MJPG', 'avc1', 'XMPG']
-                out = None
-                for codec in codecs_to_try:
-                    fourcc = cv2.VideoWriter_fourcc(*codec)
-                    out = cv2.VideoWriter(output_path, fourcc, secret_fps, (secret_width, secret_height))
-                    if out.isOpened():
-                        break
+            # Web-friendly codecs for extraction results
+            # (No security needed for the extracted content, just playback)
+            codecs_to_try = [
+                ('avc1', '.mp4'), 
+                ('H264', '.mp4'), 
+                ('mp4v', '.mp4'),
+                ('XVID', '.avi'),
+                ('MJPG', '.avi')
+            ]
+            
+            out = None
+            for codec, ext in codecs_to_try:
+                if out: out.release()
+                
+                # Update output_path if we fall back to a different extension
+                if not output_path.lower().endswith(ext):
+                    output_path = os.path.splitext(output_path)[0] + ext
+                    
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                out = cv2.VideoWriter(output_path, fourcc, secret_fps, (secret_width, secret_height))
+                if out.isOpened():
+                    break
             
             if not out or not out.isOpened():
                 cap.release()
-                return False, "Could not create output video writer"
+                return False, "Could not create output video writer. Ensure OpenCV is installed with FFmpeg support."
             
             # Read and extract video frames (skip first frame which is metadata)
             frame_num = 0
@@ -437,17 +451,32 @@ class VideoSteganography:
             fps = cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-            if not output_path.lower().endswith('.avi'):
-                output_path = os.path.splitext(output_path)[0] + '.avi'
-                
-            # Try multiple codecs in order of preference. Prefer lossless (FFV1, HFYU) for steganography.
-            codecs_to_try = ['FFV1', 'HFYU', 'DIB ', 'XVID', 'H264', 'avc1', 'XMPG', 'MJPG']
-            out = None
+            # Try multiple codecs in order of preference. 
+            # Prefer lossless (FFV1, HFYU) for steganography, or uncompressed (DIB/IYUV)
+            # Web-playable codecs like MP4V/H264 are lossy and NOT recommended for LSB.
+            codecs_to_try = [
+                ('FFV1', '.avi'), 
+                ('HFYU', '.avi'), 
+                ('IYUV', '.avi'),
+                ('DIB ', '.avi'),
+                ('XVID', '.avi'), 
+                ('avc1', '.mp4'),
+                ('MP4V', '.mp4')
+            ]
             
-            for codec in codecs_to_try:
+            out = None
+            for codec, ext in codecs_to_try:
+                if out: out.release()
+                
+                # Check for extension compatibility
+                current_output_path = output_path
+                if not current_output_path.lower().endswith(ext):
+                    current_output_path = os.path.splitext(current_output_path)[0] + ext
+                    
                 fourcc = cv2.VideoWriter_fourcc(*codec)
-                out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                out = cv2.VideoWriter(current_output_path, fourcc, fps, (width, height))
                 if out.isOpened():
+                    output_path = current_output_path # Confirm the output path we used
                     break
             
             if not out or not out.isOpened():

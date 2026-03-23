@@ -272,9 +272,18 @@ def process():
                         success, msg = stego.hide_file(source_path, secret_path, output_path, password)
 
                 elif media_type == 'audio':
-                    success, msg = stego.hide_audio(source_path, secret_path, output_path, password)
+                    ext = os.path.splitext(secret_file.filename)[1].lower()
+                    if ext in ['.wav', '.mp3', '.ogg', '.flac', '.m4a', '.mpeg', '.aac', '.wma', '.aiff']:
+                        success, msg = stego.hide_audio(source_path, secret_path, output_path, password)
+                    else:
+                        success, msg = stego.hide_file(source_path, secret_path, output_path, password)
+                        
                 elif media_type == 'video':
-                    success, msg = stego.hide_video(source_path, secret_path, output_path)
+                    ext = os.path.splitext(secret_file.filename)[1].lower()
+                    if ext in ['.mp4', '.avi', '.mov', '.mkv', '.webm']:
+                        success, msg = stego.hide_video(source_path, secret_path, output_path)
+                    else:
+                        success, msg = stego.hide_file(source_path, secret_path, output_path, password)
         
         elif operation == 'extract':
             if media_type == 'text':
