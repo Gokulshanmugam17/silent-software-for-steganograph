@@ -201,79 +201,7 @@
                             </button>
                         </form>
 
-                        <!-- Audio Output Display -->
-                        <div id="audio-output-display" class="glass-card"
-                            style="display: none; margin-top: 2rem; border-color: var(--primary);">
-                            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
-                                <i class="fa-solid fa-music"></i> Audio Steganography Output
-                            </h3>
-                            <div class="audio-player-container"
-                                style="background: rgba(0,0,0,0.2); padding: 2rem; border-radius: 20px; text-align: center;">
-                                <div class="audio-visualizer-mock"
-                                    style="height: 60px; display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 1.5rem;">
-                                    <div class="bar"
-                                        style="height: 20px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1s infinite;">
-                                    </div>
-                                    <div class="bar"
-                                        style="height: 40px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1.2s infinite;">
-                                    </div>
-                                    <div class="bar"
-                                        style="height: 30px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 0.8s infinite;">
-                                    </div>
-                                    <div class="bar"
-                                        style="height: 50px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 1.1s infinite;">
-                                    </div>
-                                    <div class="bar"
-                                        style="height: 25px; width: 4px; background: var(--primary); border-radius: 2px; animation: bounce 0.9s infinite;">
-                                    </div>
-                                </div>
-                                <audio id="stego-audio-player" controls
-                                    style="width: 100%; filter: invert(1) hue-rotate(180deg) brightness(1.5);"></audio>
-                                <div id="audio-output-actions"
-                                    style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
-                                    <a id="audio-download-btn" href="#" class="action-btn"
-                                        style="width: auto; padding: 0.8rem 1.5rem;">
-                                        <i class="fa-solid fa-download"></i> Download Audio
-                                    </a>
-                                    <button id="audio-share-btn" onclick="openShareModal('audio')"
-                                        class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
-                                        <i class="fa-solid fa-share-nodes"></i> Share
-                                    </button>
-                                    <button id="audio-native-share-btn" onclick="shareAudioNative()" class="action-btn"
-                                        style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
-                                        <i class="fa-solid fa-share"></i> Direct
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Video Output Display -->
-                        <div id="video-output-display" class="glass-card"
-                            style="display: none; margin-top: 2rem; border-color: var(--primary);">
-                            <h3 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">
-                                <i class="fa-solid fa-file-video"></i> Video Steganography Output
-                            </h3>
-                            <div class="video-player-container"
-                                style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 20px; text-align: center;">
-                                <video id="stego-video-player" controls
-                                    style="width: 100%; border-radius: 12px; border: 1px solid var(--border); max-height: 400px; background: #000;"></video>
-                                <div id="video-output-actions"
-                                    style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
-                                    <a id="video-download-btn" href="#" class="action-btn"
-                                        style="width: auto; padding: 0.8rem 1.5rem;">
-                                        <i class="fa-solid fa-download"></i> Download Video
-                                    </a>
-                                    <button id="video-share-btn" onclick="openShareModal('video')"
-                                        class="action-btn secondary" style="width: auto; padding: 0.8rem 1.5rem;">
-                                        <i class="fa-solid fa-share-nodes"></i> Share
-                                    </button>
-                                    <button id="video-native-share-btn" onclick="shareVideoNative()" class="action-btn"
-                                        style="width: auto; padding: 0.8rem 1.5rem; display: none; background: var(--success-alpha-20); border: 1px solid var(--success);">
-                                        <i class="fa-solid fa-share"></i> Direct
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
 
                         <!-- Image Comparison Display moved outside sections for shared visibility -->
 
@@ -428,8 +356,24 @@
                     </h3>
                     <div class="video-player-container"
                         style="background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 20px; text-align: center;">
-                        <video id="stego-video-player" controls
-                            style="width: 100%; border-radius: 12px; border: 1px solid var(--border); max-height: 400px; background: #000;"></video>
+                        <div id="video-thumbnail-display" 
+                             style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border: 2px dashed var(--primary-alpha-30); border-radius: 16px; padding: 3rem 2rem; margin-bottom: 0.5rem; position: relative; overflow: hidden;">
+                            <!-- Decorative background glow -->
+                            <div style="position: absolute; width: 100px; height: 100px; background: var(--primary); filter: blur(80px); opacity: 0.15; z-index: 0;"></div>
+                            
+                            <div class="video-card-icon" style="font-size: 4.5rem; color: var(--primary); margin-bottom: 1.5rem; filter: drop-shadow(0 0 20px var(--primary-alpha-40)); z-index: 1;">
+                                <i class="fa-solid fa-file-video"></i>
+                            </div>
+                            <div style="z-index: 1;">
+                                <h4 style="color: var(--text); margin-bottom: 0.5rem; font-size: 1.1rem;">Secure Video Archive</h4>
+                                <p id="stego-video-filename" style="font-family: 'Space Mono', monospace; color: var(--primary-light); font-size: 0.8rem; word-break: break-all; opacity: 0.8;">output_video.avi</p>
+                            </div>
+                            <div style="margin-top: 1.5rem; font-size: 0.7rem; color: var(--success); background: var(--success-alpha-10); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--success-alpha-30); z-index: 1; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                                <i class="fa-solid fa-check-double"></i> Verified Lossless
+                            </div>
+                            <!-- Hidden player to prevent JS errors if needed, though we'll update JS -->
+                            <video id="stego-video-player" style="display: none;"></video>
+                        </div>
                         <div id="video-output-actions"
                             style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: center; flex-wrap: wrap;">
                             <a id="video-download-btn" href="#" class="action-btn"
@@ -530,28 +474,19 @@
                                     <!-- Layer 1 -->
                                     <div
                                         style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
-                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 1 (Inner)
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 1 (Inner) - Image
                                         </h3>
-                                        <div class="input-group">
-                                            <label>Type</label>
-                                            <select id="ml-layer1-type" name="layer1_type"
-                                                onchange="updateLayerUploadUI('layer1')">
-                                                <option value="text">Text</option>
-                                                <option value="image">Image</option>
-                                                <option value="audio">Audio</option>
-                                                <option value="video">Video</option>
-                                            </select>
-                                        </div>
+                                        <input type="hidden" id="ml-layer1-type" name="layer1_type" value="image">
                                         <div class="input-group">
                                             <label>Password</label>
                                             <input type="password" id="ml-layer1-pass" name="layer1_password"
                                                 placeholder="Optional">
                                         </div>
-                                        <div class="upload-area small" id="ml-layer1-upload" style="display: none;">
-                                            <input type="file" id="ml-layer1-file" name="layer1_cover" hidden>
+                                        <div class="upload-area small" id="ml-layer1-upload">
+                                            <input type="file" id="ml-layer1-file" name="layer1_cover" accept="image/*" hidden>
                                             <div class="upload-content">
-                                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                                                <p>Upload <strong>Source Media</strong></p>
+                                                <i class="fa-solid fa-file-image"></i>
+                                                <p>Upload <strong>Inner Image</strong></p>
                                                 <div class="file-info" id="ml-layer1-info"></div>
                                             </div>
                                         </div>
@@ -559,35 +494,24 @@
                                             <img id="ml-l1-preview" src=""
                                                 style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
                                         </div>
-                                        <textarea id="ml-layer1-text" name="layer1_text"
-                                            placeholder="Enter text carrier" style="display: none;"></textarea>
                                     </div>
 
                                     <!-- Layer 2 -->
                                     <div
                                         style="background: var(--primary-alpha-10); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
-                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 2 (Outer)
+                                        <h3 style="color: var(--primary-light); margin-bottom: 1rem;">Layer 2 (Outer) - Video
                                         </h3>
-                                        <div class="input-group">
-                                            <label>Type</label>
-                                            <select id="ml-layer2-type" name="layer2_type"
-                                                onchange="updateLayerUploadUI('layer2')">
-                                                <option value="text">Text</option>
-                                                <option value="image">Image</option>
-                                                <option value="audio">Audio</option>
-                                                <option value="video">Video</option>
-                                            </select>
-                                        </div>
+                                        <input type="hidden" id="ml-layer2-type" name="layer2_type" value="video">
                                         <div class="input-group">
                                             <label>Password</label>
                                             <input type="password" id="ml-layer2-pass" name="layer2_password"
                                                 placeholder="Optional">
                                         </div>
-                                        <div class="upload-area small" id="ml-layer2-upload" style="display: none;">
-                                            <input type="file" id="ml-layer2-file" name="layer2_cover" hidden>
+                                        <div class="upload-area small" id="ml-layer2-upload">
+                                            <input type="file" id="ml-layer2-file" name="layer2_cover" accept="video/*" hidden>
                                             <div class="upload-content">
-                                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                                                <p>Upload <strong>Source Media</strong></p>
+                                                <i class="fa-solid fa-file-video"></i>
+                                                <p>Upload <strong>Outer Video</strong></p>
                                                 <div class="file-info" id="ml-layer2-info"></div>
                                             </div>
                                         </div>
@@ -595,8 +519,6 @@
                                             <img id="ml-l2-preview" src=""
                                                 style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
                                         </div>
-                                        <textarea id="ml-layer2-text" name="layer2_text"
-                                            placeholder="Enter text carrier" style="display: none;"></textarea>
                                     </div>
                                 </div>
 
@@ -617,7 +539,7 @@
                                 <!-- Panel 1: Secret Content -->
                                 <div style="text-align: center;">
                                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">1.
-                                        Secret Content</p>
+                                        Secret Data</p>
                                     <div class="result-box" id="ml-hide-res-1"
                                         style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
                                         <!-- Will be populated by JS -->
@@ -626,7 +548,7 @@
                                 <!-- Panel 2: Layer 1 Carrier -->
                                 <div style="text-align: center;">
                                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">2.
-                                        Layer 1 Media</p>
+                                        Inner Image Layer</p>
                                     <div class="result-box" id="ml-hide-res-2"
                                         style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
                                         <!-- Will be populated by JS -->
@@ -635,7 +557,7 @@
                                 <!-- Panel 3: Final Layer -->
                                 <div style="text-align: center;">
                                     <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">3.
-                                        Final Output</p>
+                                        Final Video Output</p>
                                     <div class="result-box" id="ml-hide-res-3"
                                         style="height: 120px; background: rgba(0,0,0,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--border); padding: 5px;">
                                         <!-- Will be populated by JS -->
@@ -687,14 +609,14 @@
                                 <div
                                     style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; margin-top: 1.5rem;">
                                     <div class="input-group">
-                                        <label>Outer Layer Password</label>
+                                        <label>Outer Layer (Video) Password</label>
                                         <input type="password" id="ml-auto-pass-1" name="auto_pass_1"
-                                            placeholder="Password for Layer 1">
+                                            placeholder="Layer 2 Password">
                                     </div>
                                     <div class="input-group">
-                                        <label>Inner Layer Password</label>
+                                        <label>Inner Layer (Image) Password</label>
                                         <input type="password" id="ml-auto-pass-2" name="auto_pass_2"
-                                            placeholder="Password for Layer 2">
+                                            placeholder="Layer 1 Password">
                                     </div>
                                 </div>
 
@@ -714,7 +636,7 @@
                                     <div class="glass-card"
                                         style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
                                         <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                                            Cover File</h4>
+                                            Outer Video Carrier</h4>
                                         <div id="ml-res-cover-box"
                                             style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
                                             <!-- Content injected via JS -->
@@ -724,7 +646,7 @@
                                     <div class="glass-card"
                                         style="padding: 1rem; text-align: center; background: rgba(0,0,0,0.2);">
                                         <h4 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-                                            Inner Layer</h4>
+                                            Extracted Image Layer</h4>
                                         <div id="ml-res-inner-box"
                                             style="height: 100px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 8px; background: rgba(0,0,0,0.3);">
                                             <!-- Content injected via JS -->

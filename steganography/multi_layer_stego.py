@@ -285,10 +285,37 @@ class MultiLayerSteganography:
                     else:
                         return False, "Unexpected result format from extract_file", layers_found
                 
-                # Attempt 2: Extract as Text (Final layer)
+                # Attempt 2: Extract as Text (Final layer or mis-extracted file)
                 success, result = stego.extract_text(current_stego, current_pw)
                 if success:
-                    # If this succeeds, it's definitely text data
+                    # HEURISTIC: Check if this "text" is actually a mis-extracted file
+                    # (This happens if extract_file failed but extract_text found the delimiter)
+                    if isinstance(result, str) and result.startswith('{{FILE:'):
+                        import re
+                        match = re.search(r"{{FILE:(.+?),SIZE:(\d+)}}", result)
+                        if match:
+                            filename = match.group(1)
+                            header_end = result.find('}}') + 2
+                            file_data_str = result[header_end:]
+                            
+                            # Convert back to bytes (since it was extracted as text)
+                            # This is tricky because extract_text might have used 'ignore' or 'replace'
+                            # But if it's a lossless AVI, it might be okay.
+                            try:
+                                # We try our best to recover the bytes
+                                file_content = file_data_str.encode('utf-8', errors='ignore')
+                                extracted_path = os.path.join(output_dir, filename)
+                                with open(extracted_path, 'wb') as f:
+                                    f.write(file_content)
+                                
+                                layers_found += 1
+                                intermediates.append(extracted_path)
+                                current_stego = extracted_path
+                                continue
+                            except:
+                                pass # Fall back to treating as text
+
+                    # If this succeeds and not a file, it's definitely text data
                     layers_found += 1
                     return True, {'final': result, 'intermediates': intermediates}, layers_found
                 

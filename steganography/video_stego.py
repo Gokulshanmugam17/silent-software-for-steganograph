@@ -551,30 +551,37 @@ class VideoSteganography:
             for shift in range(8):
                 packed_bytes = np.packbits(full_lsbs[shift:]).tobytes()
                 
-                # OPTION 1: Header-based search
-                import re
-                header_match = re.search(rb"\{\{FILE:(.+?),SIZE:(\d+)\}\}", packed_bytes)
-                if header_match:
-                    try:
-                        filename = header_match.group(1).decode('utf-8', errors='ignore')
-                        filesize = int(header_match.group(2))
-                        start_byte = header_match.end()
-                        file_content = packed_bytes[start_byte : start_byte + filesize]
-                        
-                        if password:
-                            from .utils import decrypt_data
-                            try:
-                                file_content = decrypt_data(file_content, password)
-                            except: pass # Continue to next if password fails
-                        
-                        out_path = os.path.join(output_folder, filename)
-                        with open(out_path, 'wb') as f:
-                            f.write(file_content)
-                        found_file_path = out_path
-                        break
-                    except: pass
+                # Faster header-based search using find()
+                start_marker = rb"{{FILE:"
+                h_idx = packed_bytes.find(start_marker)
+                
+                if h_idx != -1:
+                    # Found a potential header, now parse it precisely
+                    # Only search for the header in the first 1KB of the found position to be efficient
+                    import re
+                    header_search_area = packed_bytes[h_idx : h_idx + 1024]
+                    header_match = re.search(rb"\{\{FILE:(.+?),SIZE:(\d+)\}\}", header_search_area)
+                    if header_match:
+                        try:
+                            filename = header_match.group(1).decode('utf-8', errors='ignore')
+                            filesize = int(header_match.group(2))
+                            start_byte = h_idx + header_match.end()
+                            file_content = packed_bytes[start_byte : start_byte + filesize]
+                            
+                            if password:
+                                from .utils import decrypt_data
+                                try:
+                                    file_content = decrypt_data(file_content, password)
+                                except: pass
+                            
+                            out_path = os.path.join(output_folder, filename)
+                            with open(out_path, 'wb') as f:
+                                f.write(file_content)
+                            found_file_path = out_path
+                            break
+                        except: pass
 
-                # OPTION 2: Delimiter-based search
+                # OPTION 2: Delimiter-based search (even faster fallback)
                 found_idx = packed_bytes.find(del_bytes)
                 if found_idx != -1:
                     del_idx = (found_idx * 8) + shift

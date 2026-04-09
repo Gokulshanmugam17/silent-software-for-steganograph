@@ -548,4 +548,7 @@ def multilayer():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    # Listen on Render's assigned port, or default to 8080 locally
+    port = int(os.environ.get("PORT", 8080))
+    # In production, debug should be False
+    app.run(host='0.0.0.0', port=port, debug=False)

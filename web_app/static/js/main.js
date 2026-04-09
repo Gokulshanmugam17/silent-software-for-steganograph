@@ -70,7 +70,7 @@ function setMediaType(type) {
         image: { title: 'Image Steganography', icon: 'fa-image', desc: 'LSB encoding in PNG, BMP, TIFF' },
         audio: { title: 'Audio Steganography', icon: 'fa-music', desc: 'Hide data in MP3, WAV, MPEG, etc.' },
         video: { title: 'Video Steganography', icon: 'fa-film', desc: 'Frame-based data embedding' },
-        multilayer: { title: 'Multi-Layer Steganography', icon: 'fa-layer-group', desc: 'Recursive hiding across multiple layers' },
+        multilayer: { title: 'Multi-Layer Steganography', icon: 'fa-layer-group', desc: 'Secure Layering: Secret Message → Inner Image → Outer Video' },
         history: { title: 'Operation History', icon: 'fa-clock-rotate-left', desc: 'Track your secure transmissions' }
     };
 
@@ -125,6 +125,9 @@ function setMediaType(type) {
 
     if (type === 'multilayer') {
         if (multilayerSection) multilayerSection.style.display = 'block';
+        // Initialize fixed layer UI
+        updateLayerUploadUI('layer1');
+        updateLayerUploadUI('layer2');
     } else if (type === 'history') {
         if (historySection) historySection.style.display = 'block';
         fetchHistory();
@@ -395,6 +398,9 @@ function displayHideOutput(result, mediaType) {
     if (audioDisplayArea) audioDisplayArea.style.display = 'none';
     if (videoDisplayArea) videoDisplayArea.style.display = 'none';
 
+    const isAudio = result.download_url && result.download_url.match(/\.(wav|mp3|ogg|flac|m4a|mpeg)$/i);
+    const isVideo = result.download_url && result.download_url.match(/\.(avi|mp4|mkv|mov|webm)$/i);
+
     // Show image comparison for image media type
     if (mediaType === 'image' && result.download_url) {
         const sourceFileInput = document.getElementById('source-file');
@@ -422,7 +428,7 @@ function displayHideOutput(result, mediaType) {
         // Show image comparison with cover and hidden images
         showImageComparison(coverImageUrl, hiddenImageUrl, result);
     }
-    else if (mediaType === 'audio' && result.download_url) {
+    else if ((mediaType === 'audio' || isAudio) && result.download_url) {
         if (audioDisplayArea) {
             audioDisplayArea.style.display = 'block';
             const audioPlayer = document.getElementById('stego-audio-player');
@@ -459,7 +465,7 @@ function displayHideOutput(result, mediaType) {
             audioDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
-    else if (mediaType === 'video' && result.download_url) {
+    else if ((mediaType === 'video' || isVideo) && result.download_url) {
         if (videoDisplayArea) {
             videoDisplayArea.style.display = 'block';
             const videoPlayer = document.getElementById('stego-video-player');
@@ -467,8 +473,11 @@ function displayHideOutput(result, mediaType) {
 
             if (videoPlayer) {
                 videoPlayer.src = result.download_url;
-                videoPlayer.load();
+                // No need to load() since it's hidden, but we update the label
             }
+
+            const videoLabel = document.getElementById('stego-video-filename');
+            if (videoLabel) videoLabel.textContent = result.filename || result.download_url.split('/').pop();
 
             if (downloadBtn) {
                 downloadBtn.href = result.download_url;
@@ -497,7 +506,7 @@ function displayHideOutput(result, mediaType) {
         }
     }
     else {
-        // Show text output for non-image types
+        // Show text output for non-file types or generic messages
         if (stegoOutputArea) {
             stegoOutputArea.style.display = 'block';
             const outputContent = document.getElementById('stego-text-output');
@@ -628,7 +637,9 @@ function displayExtractOutput(result) {
     if (isVideoFile && videoDisplayArea) {
         videoDisplayArea.style.display = 'block';
         const player = document.getElementById('stego-video-player');
-        if (player) { player.src = result.download_url; player.load(); }
+        if (player) { player.src = result.download_url; }
+        const vLabel = document.getElementById('stego-video-filename');
+        if (vLabel) vLabel.textContent = result.filename || result.download_url.split('/').pop();
         const dl = document.getElementById('video-download-btn');
         if (dl) { dl.href = result.download_url; dl.style.display = 'inline-flex'; }
         videoDisplayArea.scrollIntoView({ behavior: 'smooth', block: 'center' });

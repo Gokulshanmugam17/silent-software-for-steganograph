@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: silent-steganography
+    runtime: docker
+    plan: free # Change this if you need a higher tier
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHON_UNBUFFERED
+        value: "1"
+      - key: SECRET_KEY
+        generateValue: true
+    regions: oregon # Or your preferred region
+    healthCheckPath: /login
+    autoDeploy: true
